@@ -98,8 +98,9 @@ def create_datamodule(curriculum_nvars, train_cummulative=True):
         train_loaders = torch.utils.data.DataLoader(train_data[curriculum_nvars], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
 
     val_loaders = [torch.utils.data.DataLoader(val_data[i], batch_size=args.eval_batch_size, num_workers=args.num_workers) for i in range(min_nvars, curriculum_nvars + 1)]
+    test_loaders = [torch.utils.data.DataLoader(val_data[i], batch_size=args.eval_batch_size, num_workers=args.num_workers) for i in range(min_nvars, max_nvars + 1)]
 
-    data_module = dict(train_dataloaders=train_loaders, val_dataloaders=val_loaders)
+    data_module = dict(train_dataloaders=train_loaders, val_dataloaders=val_loaders, test_dataloaders=test_loaders)
 
     return data_module
 
@@ -193,7 +194,7 @@ def create_logger(curriculum_nvars):
             name=run_name,
             group=experiment_name,
             entity=args.wandb_entity,
-            config=args
+            config=dict(**args, curriculum_step=curriculum_nvars)
         )
 
     else:
@@ -241,7 +242,7 @@ if __name__ == "__main__":
         print(f"Training for curriculum_nvars={curriculum_nvars}")
         print('='*100)
         datamodule = create_datamodule(curriculum_nvars, args.train_cumulative)
-        train_dls, val_dls = datamodule['train_dataloaders'], datamodule['val_dataloaders']
+        train_dls, val_dls, test_dls = datamodule['train_dataloaders'], datamodule['val_dataloaders'], datamodule['test_dataloaders']
 
         logger = create_logger(curriculum_nvars)
 
@@ -251,7 +252,7 @@ if __name__ == "__main__":
 
         trainer.fit(model=net, train_dataloaders=train_dls, val_dataloaders=val_dls)
 
-        trainer.test(model=net, dataloaders=val_dls)
+        trainer.test(model=net, dataloaders=test_dls)
         print('='*100)
         print()
         wandb.finish()
