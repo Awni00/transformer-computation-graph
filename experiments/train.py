@@ -1,8 +1,6 @@
 import argparse
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torchinfo
 import wandb
 
@@ -12,7 +10,6 @@ from pytorch_lightning.callbacks import TQDMProgressBar
 from utils import get_experiment_name, get_model, get_dataset
 import numpy as np
 import random
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--wandb_project", default=None, type=str)
@@ -33,7 +30,7 @@ parser.add_argument('--bias', default=1, type=int, help='whether to use bias')
 parser.add_argument("--pos_enc_type", default="RoPE", type=str, choices=["RoPE", "pos_emb"])
 parser.add_argument("--max_block_size", default=1024, type=int)
 
-parser.add_argument("--batch_size", default=128, type=int)
+parser.add_argument("--batch_size", default=1024, type=int)
 parser.add_argument("--eval_batch_size", default=1024, type=int)
 parser.add_argument("--max_epochs", default=100, type=int)
 parser.add_argument("--lr", default=1e-3, type=float)
@@ -82,7 +79,12 @@ data_split_name_map = {k: v for k, v in enumerate(range(min_nvars, max_nvars+1))
 def create_datamodule(curriculum_nvars, train_cummulative=True):
 
     if train_cummulative:
-        train_loaders = torch.utils.data.DataLoader(torch.concat([train_data[i] for i in range(min_nvars, curriculum_nvars + 1)]), 
+        pad_token_idx = dgm_spec['tokenizer']['tok2idx'][dgm_spec['tokenizer']['pad_token']]
+        pad_length = max([train_data[i].shape[1] for i in range(min_nvars, curriculum_nvars + 1)])
+
+        pad_transform = lambda x: torch.nn.functional.pad(x, pad=(0, pad_length - x.shape[1]), value=pad_token_idx)
+        train_ds_ = torch.concat([pad_transform(train_data[i]) for i in range(min_nvars, curriculum_nvars + 1)])
+        train_loaders = torch.utils.data.DataLoader(train_ds_,
             batch_size=args.eval_batch_size, num_workers=args.num_workers, shuffle=True)
     else:
         train_loaders = torch.utils.data.DataLoader(train_data[curriculum_nvars], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
@@ -183,6 +185,7 @@ def create_logger(curriculum_nvars):
 
     return logger
 
+
 if __name__ == "__main__":
 
     net = LitLM(args)
@@ -232,7 +235,6 @@ if __name__ == "__main__":
         print()
         wandb.finish()
 
-        # TODO: add test set evaluation at end of training; potentially add early stopping
 
     # if not args.dry_run:
     #     model_path = f"model_checkpoints/{experiment_name}.pth"
