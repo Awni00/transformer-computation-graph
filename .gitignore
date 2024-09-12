@@ -8,6 +8,10 @@ experiments/transformer-computation-graph/
 */logs/
 */data/
 
+# slurm files
+*.out
+*.job
+
 # C extensions
 *.so
 
