@@ -3,9 +3,8 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchmetrics
-import ignite
 import torchinfo
+import wandb
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar
@@ -34,19 +33,20 @@ parser.add_argument('--bias', default=1, type=int, help='whether to use bias')
 parser.add_argument("--pos_enc_type", default="RoPE", type=str, choices=["RoPE", "pos_emb"])
 parser.add_argument("--max_block_size", default=1024, type=int)
 
-parser.add_argument("--batch-size", default=128, type=int)
-parser.add_argument("--eval-batch-size", default=1024, type=int)
-parser.add_argument("--max-epochs", default=100, type=int)
+parser.add_argument("--batch_size", default=128, type=int)
+parser.add_argument("--eval_batch_size", default=1024, type=int)
+parser.add_argument("--max_epochs", default=100, type=int)
 parser.add_argument("--lr", default=1e-3, type=float)
-parser.add_argument("--min-lr", default=1e-5, type=float)
-parser.add_argument("--warmup-epoch", default=5, type=int)
+parser.add_argument("--min_lr", default=1e-5, type=float)
+parser.add_argument("--warmup_epoch", default=5, type=int)
 parser.add_argument("--beta1", default=0.9, type=float)
 parser.add_argument("--beta2", default=0.999, type=float)
-parser.add_argument("--off-benchmark", action="store_true")
-parser.add_argument("--dry-run", action="store_true")
-parser.add_argument("--weight-decay", default=5e-5, type=float)
+parser.add_argument("--off_benchmark", action="store_true")
+parser.add_argument("--dry_run", action="store_true")
+parser.add_argument("--weight_decay", default=5e-5, type=float)
+parser.add_argument("--train_cumulative", action="store_true")
 
-parser.add_argument("--precision", default='bf16', type=str)
+parser.add_argument("--precision", default='bf16-mixed', type=str)
 parser.add_argument("--compile", action="store_true")
 
 parser.add_argument("--seed", default=None, type=int)
@@ -75,16 +75,21 @@ train_data, val_data, dgm_spec = get_dataset(args)
 
 args.dgm_spec = dgm_spec
 
-data_split_name_map = dict(enumerate(list(train_data.keys())))
 min_nvars = min(list(train_data.keys()))
 max_nvars = max(list(train_data.keys()))
+data_split_name_map = {k: v for k, v in enumerate(range(min_nvars, max_nvars+1))}
 
-def create_datamodule(curriculum_nvars):
+def create_datamodule(curriculum_nvars, train_cummulative=True):
 
-    train_loader = torch.utils.data.DataLoader(train_data[curriculum_nvars], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
-    val_loaders = [torch.utils.data.DataLoader(val_data[i], batch_size=args.eval_batch_size, num_workers=args.num_workers) for i in range(min_nvars, curriculum_nvars)]
+    if train_cummulative:
+        train_loaders = torch.utils.data.DataLoader(torch.concat([train_data[i] for i in range(min_nvars, curriculum_nvars + 1)]), 
+            batch_size=args.eval_batch_size, num_workers=args.num_workers, shuffle=True)
+    else:
+        train_loaders = torch.utils.data.DataLoader(train_data[curriculum_nvars], batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True)
 
-    data_module = dict(train_dataloaders=train_loader, val_dataloaders=val_loaders)
+    val_loaders = [torch.utils.data.DataLoader(val_data[i], batch_size=args.eval_batch_size, num_workers=args.num_workers) for i in range(min_nvars, curriculum_nvars + 1)]
+
+    data_module = dict(train_dataloaders=train_loaders, val_dataloaders=val_loaders)
 
     return data_module
 
@@ -95,8 +100,6 @@ class LitLM(pl.LightningModule):
         # self.hparams = hparams
         self.hparams.update(vars(hparams))
         self.model = get_model(hparams)
-        if args.compile:
-            self.model = torch.compile(self.model)
 
         self.log_image_flag = hparams.wandb_project is None
 
@@ -125,18 +128,33 @@ class LitLM(pl.LightningModule):
     def on_train_epoch_end(self):
         self.log("lr", self.optimizer.param_groups[0]["lr"], on_epoch=True)#self.current_epoch)
 
-    def validation_step(self, batch, batch_idx, dataloader_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
         x, y = batch[:, :-1], batch[:, 1:]
-        logits, loss = self(x)
+        logits, loss = self(x, y)
 
-        data_split_name = f"val_{data_split_name_map[dataloader_idx]}"
-        self.log(f"loss/{data_split_name}", loss)
-        self.log(f"perplexity/{data_split_name}", torch.exp(loss))
+        data_split_name = f"nvars={data_split_name_map[dataloader_idx]}"
+        self.log(f"val_loss/{data_split_name}", loss, add_dataloader_idx=False)
+        self.log(f"val_perplexity/{data_split_name}", torch.exp(loss), add_dataloader_idx=False)
 
         query_pred = logits[:, -1].argmax(-1)
         query_true = y[:, -1]
         acc = (query_pred == query_true).float().mean()
-        self.log(f"acc/{data_split_name}", acc)
+        self.log(f"val_acc/{data_split_name}", acc)
+
+        return loss
+
+    def test_step(self, batch, batch_idx, dataloader_idx=0):
+        x, y = batch[:, :-1], batch[:, 1:]
+        logits, loss = self(x, y)
+
+        data_split_name = f"test/nvars={data_split_name_map[dataloader_idx]}"
+        self.log(f"loss/{data_split_name}", loss, add_dataloader_idx=False)
+        self.log(f"perplexity/{data_split_name}", torch.exp(loss), add_dataloader_idx=False)
+
+        query_pred = logits[:, -1].argmax(-1)
+        query_true = y[:, -1]
+        acc = (query_pred == query_true).float().mean()
+        self.log(f"test_acc/{data_split_name}", acc, add_dataloader_idx=False)
 
         return loss
 
@@ -191,18 +209,30 @@ if __name__ == "__main__":
     print(f'num trainable params: {model_summary_dict["num_trainable_params"]:,}')
     args.model_summary = model_summary_dict
 
+    if args.compile:
+        net.model = torch.compile(net.model)
+
+
     for curriculum_nvars in range(min_nvars, max_nvars+1):
+        print('='*100)
         print(f"Training for curriculum_nvars={curriculum_nvars}")
-        datamodule = create_datamodule(curriculum_nvars)
-        train_dl, val_dls = datamodule['train_dataloaders'], datamodule['val_dataloaders']
+        datamodule = create_datamodule(curriculum_nvars, args.train_cumulative)
+        train_dls, val_dls = datamodule['train_dataloaders'], datamodule['val_dataloaders']
 
         logger = create_logger(curriculum_nvars)
 
-        refresh_rate = 1
-        trainer = pl.Trainer(max_epochs=args.max_epochs, precision=args.precision, fast_dev_run=args.dry_run, devices=args.gpus, benchmark=args.benchmark,
+        refresh_rate = 100
+        trainer = pl.Trainer(max_epochs=args.max_epochs, precision=args.precision, fast_dev_run=args.dry_run, benchmark=args.benchmark, # devices=args.gpus,
             logger=logger, callbacks=[TQDMProgressBar(refresh_rate=refresh_rate)])
 
-        trainer.fit(model=net, train_dataloaders=train_dl, val_dataloaders=val_dls)
+        trainer.fit(model=net, train_dataloaders=train_dls, val_dataloaders=val_dls)
+
+        trainer.test(model=net, dataloaders=val_dls)
+        print('='*100)
+        print()
+        wandb.finish()
+
+        # TODO: add test set evaluation at end of training; potentially add early stopping
 
     # if not args.dry_run:
     #     model_path = f"model_checkpoints/{experiment_name}.pth"
