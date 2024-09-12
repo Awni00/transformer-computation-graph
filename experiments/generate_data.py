@@ -1,8 +1,10 @@
 from tqdm import tqdm, trange
 import networkx as nx
-from computation_graph_dgm import ComputationGraphDGM, draw_topological_order
+from computation_graph_dgm import ComputationGraphDGM, Tokenizer
+import inspect
 import string
 import torch
+import json
 
 import argparse
 import os
@@ -17,7 +19,10 @@ parser.add_argument('--val_samples_per_n_var', type=int, default=1_000)
 args = parser.parse_args()
 
 var_vocab = list(string.ascii_lowercase) # letters a-z
-function_map = {'sum': lambda x: sum(x) % mod_val}
+def mod_sum(x):
+    return sum(x) % mod_val
+
+function_map = {'sum': mod_sum}
 mod_val = args.mod_val
 
 if not os.path.exists('data/'):
@@ -33,9 +38,16 @@ n_var_range = list(range(args.n_vars_start, args.n_vars_end+1))
 
 # save dgm to json file
 dgm_spec = dict(vars(dgm))
-import json
+def serialize(obj):
+    if callable(obj):
+        # return repr(obj)
+        return inspect.getsource(obj)
+    elif isinstance(obj, Tokenizer):
+        return dict(vars(obj))
+    else:
+        return obj
 with open(f'{data_path}/dgm_spec.json', 'w') as f:
-    json.dump(dgm_spec, f, default=repr, indent=2)
+    json.dump(dgm_spec, f, default=serialize, indent=2)
 
 # generate curriculum of training examples
 for n_vars in tqdm(n_var_range):
