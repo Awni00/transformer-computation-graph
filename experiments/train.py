@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import TQDMProgressBar
 
 from utils import get_experiment_name, get_model, get_dataset
+from computation_graph_dgm import Tokenizer
 import numpy as np
 import random
 
@@ -31,7 +32,7 @@ parser.add_argument("--pos_enc_type", default="RoPE", type=str, choices=["RoPE",
 parser.add_argument("--max_block_size", default=1024, type=int)
 
 parser.add_argument("--batch_size", default=1024, type=int)
-parser.add_argument("--eval_batch_size", default=1024, type=int)
+parser.add_argument("--eval_batch_size", default=None, type=int)
 parser.add_argument("--max_epochs", default=100, type=int)
 parser.add_argument("--lr", default=1e-3, type=float)
 parser.add_argument("--min_lr", default=1e-5, type=float)
@@ -68,6 +69,8 @@ args.num_workers = 4*args.gpus if args.gpus else 8
 if not args.gpus:
     args.precision=32
 
+args.eval_batch_size = args.eval_batch_size or args.batch_size
+
 train_data, val_data, dgm_spec = get_dataset(args)
 
 args.dgm_spec = dgm_spec
@@ -75,6 +78,10 @@ args.dgm_spec = dgm_spec
 min_nvars = min(list(train_data.keys()))
 max_nvars = max(list(train_data.keys()))
 data_split_name_map = {k: v for k, v in enumerate(range(min_nvars, max_nvars+1))}
+
+tokenizer = dgm_spec['tokenizer']
+tokenizer = Tokenizer(vocab=tokenizer['vocab'])
+args.vocab_size = len(tokenizer.vocab)
 
 def create_datamodule(curriculum_nvars, train_cummulative=True):
 
@@ -84,6 +91,7 @@ def create_datamodule(curriculum_nvars, train_cummulative=True):
 
         pad_transform = lambda x: torch.nn.functional.pad(x, pad=(0, pad_length - x.shape[1]), value=pad_token_idx)
         train_ds_ = torch.concat([pad_transform(train_data[i]) for i in range(min_nvars, curriculum_nvars + 1)])
+        print(f"train_ds_ shape: {train_ds_.shape}")
         train_loaders = torch.utils.data.DataLoader(train_ds_,
             batch_size=args.eval_batch_size, num_workers=args.num_workers, shuffle=True)
     else:
@@ -138,10 +146,16 @@ class LitLM(pl.LightningModule):
         self.log(f"val_loss/{data_split_name}", loss, add_dataloader_idx=False)
         self.log(f"val_perplexity/{data_split_name}", torch.exp(loss), add_dataloader_idx=False)
 
-        query_pred = logits[:, -1].argmax(-1)
-        query_true = y[:, -1]
-        acc = (query_pred == query_true).float().mean()
-        self.log(f"val_acc/{data_split_name}", acc)
+        # where model's predicted output would be
+        answer_index = torch.where(y==tokenizer.tok2idx['<answer>'])[1].unsqueeze(0).T # get the index of the answer token
+        answer_index += 1 # shift by 1 to get the next token
+
+        predicted_tokens = logits.argmax(-1) # token assigned the highest probability
+        predicted_answer = torch.gather(predicted_tokens, 1, answer_index).squeeze() # get the predicted answer token
+
+        true_answer = torch.gather(y, 1, answer_index).squeeze()
+        acc = (predicted_answer == true_answer).float().mean()
+        self.log(f"val_acc/{data_split_name}", acc, add_dataloader_idx=False)
 
         return loss
 
@@ -153,9 +167,15 @@ class LitLM(pl.LightningModule):
         self.log(f"loss/{data_split_name}", loss, add_dataloader_idx=False)
         self.log(f"perplexity/{data_split_name}", torch.exp(loss), add_dataloader_idx=False)
 
-        query_pred = logits[:, -1].argmax(-1)
-        query_true = y[:, -1]
-        acc = (query_pred == query_true).float().mean()
+        # where model's predicted output would be
+        answer_index = torch.where(y==tokenizer.tok2idx['<answer>'])[1].unsqueeze(0).T # get the index of the answer token
+        answer_index += 1 # shift by 1 to get the next token
+
+        predicted_tokens = logits.argmax(-1) # token assigned the highest probability
+        predicted_answer = torch.gather(predicted_tokens, 1, answer_index).squeeze() # get the predicted answer token
+
+        true_answer = torch.gather(y, 1, answer_index).squeeze()
+        acc = (predicted_answer == true_answer).float().mean()
         self.log(f"test_acc/{data_split_name}", acc, add_dataloader_idx=False)
 
         return loss
@@ -213,12 +233,13 @@ if __name__ == "__main__":
     args.model_summary = model_summary_dict
 
     if args.compile:
-        net.model = torch.compile(net.model)
-
+        # net.model = torch.compile(net.model)
+        net = torch.compile(net)
 
     for curriculum_nvars in range(min_nvars, max_nvars+1):
         print('='*100)
         print(f"Training for curriculum_nvars={curriculum_nvars}")
+        print('='*100)
         datamodule = create_datamodule(curriculum_nvars, args.train_cumulative)
         train_dls, val_dls = datamodule['train_dataloaders'], datamodule['val_dataloaders']
 
