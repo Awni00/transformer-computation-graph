@@ -2,6 +2,7 @@ import datetime
 from models import language_models
 import json
 import os
+from collections import OrderedDict
 import torch
 
 def get_dataset(args):
@@ -11,17 +12,15 @@ def get_dataset(args):
 
     # get files ending with .pt in data_path
     files = [f for f in os.listdir(args.data_path) if f.endswith('.pt')]
+    n_varss = [int(file.split('_')[1].split('.')[0]) for file in files]
+    n_varss.sort()
 
     # load data into dictionaries
-    train_data = {}
-    val_data = {}
-    for file in files:
-        if file.startswith('train'):
-            n_vars = int(file.split('_')[1].split('.')[0])
-            train_data[n_vars] = torch.load(f'{args.data_path}/{file}')
-        elif file.startswith('val'):
-            n_vars = int(file.split('_')[1].split('.')[0])
-            val_data[n_vars] = torch.load(f'{args.data_path}/{file}')
+    train_data = OrderedDict()
+    val_data = OrderedDict()
+    for n_vars in n_varss:
+        train_data[n_vars] = torch.load(f'{args.data_path}/train_{n_vars}.pt')
+        val_data[n_vars] = torch.load(f'{args.data_path}/val_{n_vars}.pt')
 
     return train_data, val_data, dgm_spec
 
