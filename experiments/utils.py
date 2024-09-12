@@ -27,7 +27,7 @@ def get_dataset(args):
 def get_model(args):
 
     model = language_models.TransformerLM(
-        vocab_size=len(args.dgm_spec['vocab']), # TODO: change this to explicitly depend on tokenizer in DGM?
+        vocab_size=args.vocab_size,
         d_model=args.d_model,
         n_layers=args.n_layers,
         n_heads=args.n_heads,
