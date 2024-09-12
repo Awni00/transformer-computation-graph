@@ -53,8 +53,6 @@ def get_experiment_name(args, curriculum_step=None):
     if curriculum_step is not None:
         experiment_name += f'-curriculum_step={curriculum_step}'
 
-    datetimestr = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-
-    run_name = f'{experiment_name} ({datetimestr})'
+    run_name = f'{experiment_name} ({args.seed})'
 
     return experiment_name, run_name
