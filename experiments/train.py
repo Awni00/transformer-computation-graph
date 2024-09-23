@@ -194,7 +194,7 @@ def create_logger(curriculum_nvars):
             name=run_name,
             group=experiment_name,
             entity=args.wandb_entity,
-            config=dict(**args, curriculum_step=curriculum_nvars)
+            config=dict(**dict(vars(args)), curriculum_step=curriculum_nvars)
         )
 
     else:
