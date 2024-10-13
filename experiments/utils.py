@@ -25,22 +25,38 @@ def get_dataset(args):
     return train_data, val_data, dgm_spec
 
 def get_model(args):
-
-    model = language_models.TransformerLM(
-        vocab_size=args.vocab_size,
-        d_model=args.d_model,
-        n_layers=args.n_layers,
-        n_heads=args.n_heads,
-        dff=args.dff,
-        dropout_rate=args.dropout_rate,
-        activation=args.activation,
-        norm_first=args.norm_first,
-        max_block_size=args.max_block_size,
-        norm_type=args.norm_type,
-        bias=args.bias,
-        pos_enc_type=args.pos_enc_type,
-        use_flash_attention=True,
-        block_kwargs=None)
+    if getattr(args, 'recurrent', False):
+        model = language_models.RecurrentTransformerLM(
+            vocab_size=args.vocab_size,
+            d_model=args.d_model,
+            default_n_iters=args.n_layers,
+            n_heads=args.n_heads,
+            dff=args.dff,
+            dropout_rate=args.dropout_rate,
+            activation=args.activation,
+            norm_first=args.norm_first,
+            max_block_size=args.max_block_size,
+            norm_type=args.norm_type,
+            bias=args.bias,
+            pos_enc_type=args.pos_enc_type,
+            use_flash_attention=True,
+            block_kwargs=None)
+    else:
+        model = language_models.TransformerLM(
+            vocab_size=args.vocab_size,
+            d_model=args.d_model,
+            n_layers=args.n_layers,
+            n_heads=args.n_heads,
+            dff=args.dff,
+            dropout_rate=args.dropout_rate,
+            activation=args.activation,
+            norm_first=args.norm_first,
+            max_block_size=args.max_block_size,
+            norm_type=args.norm_type,
+            bias=args.bias,
+            pos_enc_type=args.pos_enc_type,
+            use_flash_attention=True,
+            block_kwargs=None)
 
     return model
 
