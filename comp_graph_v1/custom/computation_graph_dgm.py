@@ -236,7 +236,32 @@ def draw_topological_order(sample, numeric_vocab, query_node=None, rad=-0.8, fig
     return fig, ax
 
 
+class ADD:
+    def __init__(self, mod_val) -> None:
+        self.mod_val = mod_val
+    def __call__(self, x, y):
+        return (x + y) % self.mod_val
+    @property
+    def __name__(self):
+        return "ADD"
 
+class MUL:
+    def __init__(self, mod_val) -> None:
+        self.mod_val = mod_val
+    def __call__(self, x, y):
+        return (x * y) % self.mod_val
+    @property
+    def __name__(self):
+        return "MUL"
+    
+class EQUL:
+    def __init__(self, mod_val) -> None:
+        self.mod_val = mod_val
+    def __call__(self, x, y):
+        return y % self.mod_val
+    @property
+    def __name__(self):
+        return "EQUL"
 
 class DAGNode:
     def __init__(self, name, weight=None):
@@ -268,13 +293,30 @@ class DAGNode:
         Returns:
         - The computed value of the node
         """
-        value = self.fan_in[0][0].weight
-        for parent_node, func in self.fan_in[1:]:
-            value = func(value, parent_node.weight)
-        return value
+        if len(self.fan_in) == 0:
+            pass
+        elif len(self.fan_in) > 0:
+            for parent_node, func in self.fan_in:
+                self.weight = func.__call__(self.weight, parent_node.weight)
+                
+    def print_algorithmic_expression(self):
+        """
+        Print an algorithmic expression that represents how the fan-in is calculated.
+        """
+        if not self.fan_in:
+            print(f"{self.name} = {self.weight:.2f} / No fan-in")
+        else:
+            value = 0
+            expression = ""
+            for parent_node, func in self.fan_in:
+                operation = func.__name__ if hasattr(func, '__name__') else 'func'
+                expression += f" {operation} ({parent_node.name})"
+                value = func.__call__(value, parent_node.weight)
+            expression = f"{self.name} = {self.weight:.2f} / {value} <-" + expression
+            print(expression)
 
 class DAG:
-    def __init__(self, vocab, min_fan_in_deg=1, max_fan_in_deg=3, func_vocab=None):
+    def __init__(self, vocab, min_fan_in_deg=1, max_fan_in_deg=3, func_vocab=None, mod_val=19):
         """
         Initialize a Directed Acyclic Graph (DAG) in dictionary order, node by node.
         
@@ -284,14 +326,16 @@ class DAG:
         - max_fan_in_deg: maximum number of incoming edges per node (must be at least 0)
         - func_vocab: list of functions to be used for combining fan-in nodes
         """
+        self.mod_val = mod_val
         self.vocab = vocab
         self.min_fan_in_deg = min_fan_in_deg
         self.max_fan_in_deg = max_fan_in_deg
-        self.func_vocab = func_vocab if func_vocab else [lambda x, y: x + y, lambda x, y: x * y]  # Default to addition and multiplication
+        self.func_vocab = func_vocab if func_vocab else [ADD, MUL]  # Default to addition and multiplication
         self.graph = self._generate_random_dag()
         self.node_info = {node: DAGNode(node) for node in self.vocab}  # Create DAGNode instances for each node
         self._assign_node_weights()
-        self._process_fan_in_nodes()
+        self._init_fan_in_method()
+        
 
     def _generate_random_dag(self):
         """
@@ -333,21 +377,32 @@ class DAG:
         for node in self.graph.nodes:
             self.node_info[node].weight = random.uniform(1.0, 10.0)
 
-    def _process_fan_in_nodes(self):
+    def _init_fan_in_method(self):
         """
-        Process the fan-in nodes for each node and assign random operations to combine them.
+        Init the fan-in method for each node and assign random operations to combine them.
         """
         for node in self.graph.nodes:
             fan_in_nodes = list(self.graph.predecessors(node))
+            if len(fan_in_nodes) == 1:
+                # just set node_info[node].fan_in to be the parent node with no operation
+                self.node_info[node].add_fan_in(self.node_info[fan_in_nodes[0]], EQUL(self.mod_val))
             if len(fan_in_nodes) > 1:
                 # Assign a random order to fan-in nodes
                 random.shuffle(fan_in_nodes)
                 
+                self.node_info[node].add_fan_in(self.node_info[fan_in_nodes[0]], EQUL(self.mod_val))
                 # Combine fan-in nodes using functions from func_vocab
                 for j in range(1, len(fan_in_nodes)):
                     func = random.choice(self.func_vocab)
-                    self.node_info[node].add_fan_in(self.node_info[fan_in_nodes[j]], func)
+                    self.node_info[node].add_fan_in(self.node_info[fan_in_nodes[j]], func(self.mod_val))
 
+    def sync_node_values(self):
+        """
+        Iteratively apply each node's compute_value() method to sync all the values in the graph.
+        """
+        for node in nx.topological_sort(self.graph):
+            self.node_info[node].compute_value()
+            
     def draw(self):
         """
         Draw the DAG using matplotlib, with node weights displayed.
@@ -363,10 +418,13 @@ class DAG:
 abstract_vocab = ['a', 'b', 'c', 'd', 'e', 'f']
 min_fan_in_deg = 1
 max_fan_in_deg = 3
-func_vocab = [lambda x, y: x + y, lambda x, y: x * y]  # Example functions
+func_vocab = [ADD, MUL]  # Example functions
 
 # Create a DAG instance
 dag_instance = DAG(abstract_vocab, min_fan_in_deg, max_fan_in_deg, func_vocab)
+
+# Sync the values in the graph
+dag_instance.sync_node_values()
 
 # Draw the generated DAG
 dag_instance.draw()
@@ -374,3 +432,4 @@ dag_instance.draw()
 # Print node information
 for node in dag_instance.node_info.values():
     print(f"Node: {node.name}, Weight: {node.weight}, Fan-in: {[f'({parent.name}, {func.__name__})' for parent, func in node.fan_in]}")
+    node.print_algorithmic_expression()
