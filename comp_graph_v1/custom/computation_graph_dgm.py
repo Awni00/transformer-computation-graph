@@ -263,7 +263,7 @@ class EQUL:
     def __name__(self):
         return "EQUL"
 
-class DAGNode:
+class DAGWeightedNode:
     def __init__(self, name, weight=None):
         """
         Initialize a DAG node with a name and an optional weight.
@@ -281,7 +281,7 @@ class DAGNode:
         Add a fan-in node with the function used to combine the values.
         
         Parameters:
-        - parent_node: the DAGNode instance of the parent node
+        - parent_node: the DAGWeightedNode instance of the parent node
         - func: the function used to combine the parent node's value with the current value
         """
         self.fan_in.append((parent_node, func))
@@ -315,7 +315,7 @@ class DAGNode:
             expression = f"{self.name} = {self.weight:.2f} / {value} <-" + expression
             print(expression)
 
-class DAG:
+class AlgorithmicDAG:
     def __init__(self, vocab, min_fan_in_deg=1, max_fan_in_deg=3, func_vocab=None, mod_val=19):
         """
         Initialize a Directed Acyclic Graph (DAG) in dictionary order, node by node.
@@ -332,7 +332,7 @@ class DAG:
         self.max_fan_in_deg = max_fan_in_deg
         self.func_vocab = func_vocab if func_vocab else [ADD, MUL]  # Default to addition and multiplication
         self.graph = self._generate_random_dag()
-        self.node_info = {node: DAGNode(node) for node in self.vocab}  # Create DAGNode instances for each node
+        self.node_info = {node: DAGWeightedNode(node) for node in self.vocab}  # Create DAGWeightedNode instances for each node
         self._assign_node_weights()
         self._init_fan_in_method()
         
@@ -420,8 +420,8 @@ min_fan_in_deg = 1
 max_fan_in_deg = 3
 func_vocab = [ADD, MUL]  # Example functions
 
-# Create a DAG instance
-dag_instance = DAG(abstract_vocab, min_fan_in_deg, max_fan_in_deg, func_vocab)
+# Create a AlgorithmicDAG instance
+dag_instance = AlgorithmicDAG(abstract_vocab, min_fan_in_deg, max_fan_in_deg, func_vocab)
 
 # Sync the values in the graph
 dag_instance.sync_node_values()
