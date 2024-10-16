@@ -2,6 +2,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import networkx as nx
+from typing import List, Optional
 
 unk_token = '<unk>'
 pad_token = '<pad>'
@@ -316,7 +317,19 @@ class DAGWeightedNode:
             print(expression)
 
 class AlgorithmicDAG:
-    def __init__(self, vocab, min_fan_in_deg=1, max_fan_in_deg=3, func_vocab=None, mod_val=19):
+    def __init__(self, 
+                 vocab: List, 
+                 min_fan_in_deg: int = 1, 
+                 max_fan_in_deg: int = 3, 
+                 num_leaf_nodes: int = 5,
+                 func_vocab: Optional[List] = [],
+                 mod_val: Optional[int] = 19,
+                 shuffle_predecessors: Optional[bool] = False,
+                 seed: Optional[int] = None, 
+                 verbose: Optional[bool] = False,
+                 vocab_obj: Optional[DAGWeightedNode] = None,
+                    **kwargs
+                 ):
         """
         Initialize a Directed Acyclic Graph (DAG) in dictionary order, node by node.
         
@@ -327,15 +340,32 @@ class AlgorithmicDAG:
         - func_vocab: list of functions to be used for combining fan-in nodes
         """
         self.mod_val = mod_val
-        self.vocab = vocab
+        self.num_leaf_nodes = num_leaf_nodes
         self.min_fan_in_deg = min_fan_in_deg
         self.max_fan_in_deg = max_fan_in_deg
+        
+        if seed is not None:
+            random.seed(seed)
+            
+        self.verbose = verbose
+        
         self.func_vocab = func_vocab if func_vocab else [ADD, MUL]  # Default to addition and multiplication
         self.graph = self._generate_random_dag()
-        self.node_info = {node: DAGWeightedNode(node) for node in self.vocab}  # Create DAGWeightedNode instances for each node
+        self.node_info = {}
+        for node in vocab:
+            if vocab_obj and any(n.name == node for n in vocab_obj):
+                self.node_info[node] = next(n for n in vocab_obj if n.name == node)
+            else:
+                self.node_info[node] = DAGWeightedNode(node)
+                
+        if shuffle_predecessors:
+            # shuffle the node_info dictionary to randomize the order of the nodes
+            self.node_info = dict(random.shuffle(list(self.node_info.items())))
+        
+        self.vocab = [node.name for node in self.node_info.values()] # already in order
+        
         self._assign_node_weights()
         self._init_fan_in_method()
-        
 
     def _generate_random_dag(self):
         """
@@ -352,7 +382,7 @@ class AlgorithmicDAG:
             G.add_node(node)
             
             # Step 3: Add edges from previous nodes to the current node
-            if idx > 0:
+            if idx > self.num_leaf_nodes - 1:
                 # Previous nodes available for connecting
                 possible_parents = self.vocab[:idx]
                 
@@ -413,23 +443,34 @@ class AlgorithmicDAG:
         nx.draw(self.graph, pos, with_labels=True, labels=node_labels, node_color='lightblue', edge_color='gray', node_size=2000, font_size=10)
         plt.title("Directed Acyclic Graph (DAG) with Node Weights")
         plt.show()
-
-# Example usage:
-abstract_vocab = ['a', 'b', 'c', 'd', 'e', 'f']
-min_fan_in_deg = 1
-max_fan_in_deg = 3
-func_vocab = [ADD, MUL]  # Example functions
-
-# Create a AlgorithmicDAG instance
-dag_instance = AlgorithmicDAG(abstract_vocab, min_fan_in_deg, max_fan_in_deg, func_vocab)
-
-# Sync the values in the graph
-dag_instance.sync_node_values()
-
-# Draw the generated DAG
-dag_instance.draw()
-
-# Print node information
-for node in dag_instance.node_info.values():
-    print(f"Node: {node.name}, Weight: {node.weight}, Fan-in: {[f'({parent.name}, {func.__name__})' for parent, func in node.fan_in]}")
-    node.print_algorithmic_expression()
+        
+    @property
+    def leaf_nodes_string(self):
+        """
+        Return the leaf nodes of the graph.
+        
+        Returns:
+        - A list of leaf nodes
+        """
+        return self.vocab[:self.num_leaf_nodes]
+    
+    @property
+    def leaf_nodes_pointer(self):
+        """
+        Return the leaf nodes of the graph as pointers to the DAGWeightedNode instances.
+        
+        Returns:
+        - A list of pointers to the leaf nodes
+        """
+        return [self.node_info[node] for node in self.leaf_nodes_string]
+    
+    def set_leaf_nodes_value(self, values):
+        """
+        Set the values of the leaf nodes.
+        
+        Parameters:
+        - values: A list of values for the leaf nodes
+        """
+        assert len(values) == self.num_leaf_nodes, "Number of values must match the number of leaf nodes"
+        for i, node in enumerate(self.leaf_nodes):
+            self.node_info[node].weight = values[i]
