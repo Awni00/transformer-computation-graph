@@ -81,22 +81,19 @@ class DAGWeightedNode:
         self.weight = weight if weight is not None else random.randint(1, 100)
         self.fan_in = []  # Stores the fan-in nodes and the applied functions
         self.depth = 0  # Depth of the node, default is 0
+        self.oper_depth = 0  # Total number of operations needed to compute the node's value
 
     def add_fan_in(self, parent_node, func):
         """
-        Add a fan-in node with the function used to combine the values.
+        Add a fan-in node with the function used to combine the values. 
         
         Parameters:
         - parent_node: the DAGWeightedNode instance of the parent node
         - func: the function used to combine the parent node's value with the current value
         """
         self.fan_in.append((parent_node, func))
-        if isinstance(parent_node, DAGWeightedNode):
-            self.depth = max(self.depth, parent_node.depth + 1)
-        else:
-            self.depth = 0
 
-    def compute_value(self):
+    def compute_weight(self):
         """
         Compute the value of the node based on its fan-in nodes and functions.
         
@@ -108,7 +105,30 @@ class DAGWeightedNode:
         elif len(self.fan_in) > 0:
             for parent_node, func in self.fan_in:
                 self.weight = func.__call__(self.weight, parent_node.weight)
-                
+
+    def compute_depth(self):
+        """
+        Compute the depth of the node based on its fan-in nodes.
+        """
+        self.depth = 0
+        if len(self.fan_in) == 0:
+            pass
+        elif len(self.fan_in) > 0:
+            for parent_node, func in self.fan_in:
+                self.depth = max(self.depth, parent_node.depth + 1)
+    
+    def compute_oper_depth(self):
+        """
+        Compute the total number of operations needed to compute the node's value.
+        """
+        self.oper_depth = 1
+        if len(self.fan_in) == 0:
+            pass # No fan-in nodes means only need one operation to assign the weight
+        elif len(self.fan_in) > 0:
+            self.oper_depth = len(self.fan_in) # value assignment EQUL is also counted as an operation
+            for parent_node, func in self.fan_in:
+                self.oper_depth += parent_node.oper_depth
+
     def print_algorithmic_expression(self):
         """
         Print an algorithmic expression that represents how the fan-in is calculated.
@@ -146,7 +166,7 @@ class DAGWeightedNode:
     @classmethod
     def from_math_expression(cls, expression, node_dict, mod_val=19):
         """
-        Create or update a node from a given mathematical expression.
+        Create or update a node from a given mathematical expression. The 
         
         Parameters:
         - expression: A string representing the mathematical expression of the node.
@@ -176,7 +196,7 @@ class DAGWeightedNode:
                 else:
                     node.add_fan_in(node_dict[parent_name], EQUL(mod_val))
             i += 1
-        node.compute_value()
+        node.compute_weight()
         return node
     
 class AlgorithmicDAG:
@@ -191,6 +211,7 @@ class AlgorithmicDAG:
                  shuffle_predecessors: Optional[bool] = False,
                  verbose: Optional[bool] = False,
                  vocab_obj: Optional[DAGWeightedNode] = None,
+                 class_type: str = 'abs', 
                     **kwargs
                  ):
         """
@@ -213,7 +234,11 @@ class AlgorithmicDAG:
         
         self.func_vocab = func_vocab if func_vocab else [ADD, MUL]  # Default to addition and multiplication
 
-        self.node_info = {node.name: node for node in (vocab_obj or [])}
+        if vocab_obj:
+            self.node_info = {name: node for name, node in (vocab_obj.items() or [])}
+        else: 
+            self.node_info = {}
+
         for node in vocab:
             if node not in self.node_info:
                 self.node_info[node] = DAGWeightedNode(node)
@@ -228,11 +253,14 @@ class AlgorithmicDAG:
 
         self.graph = self._generate_random_dag()
         self._init_fan_in_method()
-        self.sync_node_values()
+        self.sync_node_states()
+
+        self.class_type = class_type
 
         if verbose:
             self.draw()
             self.print_nodes()
+
 
     def _generate_random_dag(self):
         """
@@ -299,12 +327,14 @@ class AlgorithmicDAG:
                     func = random.choice(self.func_vocab)
                     self.node_info[node].add_fan_in(self.node_info[fan_in_nodes[j]], func(self.mod_val))
 
-    def sync_node_values(self):
+    def sync_node_states(self):
         """
-        Iteratively apply each node's compute_value() method to sync all the values in the graph.
+        Iteratively apply each node's compute_weight() method to sync all the values in the graph.
         """
         for node in nx.topological_sort(self.graph):
-            self.node_info[node].compute_value()
+            self.node_info[node].compute_weight()
+            self.node_info[node].compute_depth()
+            self.node_info[node].compute_oper_depth()
             
     def draw(self):
         """
@@ -335,14 +365,14 @@ class AlgorithmicDAG:
         return self.vocab[:self.num_leaf_nodes]
     
     @property
-    def leaf_nodes_pointer(self):
+    def leaf_nodes_dict(self):
         """
         Return the leaf nodes of the graph as pointers to the DAGWeightedNode instances.
         
         Returns:
         - A list of pointers to the leaf nodes
         """
-        return [self.node_info[node] for node in self.leaf_nodes_string]
+        return {node: self.node_info[node] for node in self.leaf_nodes_string}
     
     def set_leaf_nodes_value(self, values):
         """
@@ -352,9 +382,92 @@ class AlgorithmicDAG:
         - values: A list of values for the leaf nodes
         """
         assert len(values) == self.num_leaf_nodes, "Number of values must match the number of leaf nodes"
-        for i, node in enumerate(self.leaf_nodes_pointer):
+        for i, node_tuple in enumerate(self.leaf_nodes_dict.items()):
+            node_name, node = node_tuple
             node.weight = values[i] % self.mod_val
 
+    def generate_sentence(self, splitter: str = ', ', shuffle: bool = False) -> str:
+        """
+        Generate a sentence by iteratively calling `to_math_expression` method of all nodes.
+
+        Parameters:
+        - splitter: The string used to split each node's math expression.
+        - class_type: The type of class for generating the expression.
+
+        Returns:
+        - A string representing the concatenated mathematical expressions of all nodes.
+        """
+        
+        expressions = [self.node_info[node].to_math_expression() for node in nx.topological_sort(self.graph)]
+
+        original_indices = list(range(len(expressions)))
+        if shuffle:
+            combined = list(zip(expressions, original_indices))
+            random.shuffle(combined)
+            expressions, original_indices = zip(*combined)
+        return splitter.join(expressions), original_indices
+
+    def expand_graph_from_sentence(self, sentence: str, original_indices: List[int], splitter: str = ', ', aug_node_info: dict = {}) -> None:
+        """
+        Reconstruct the graph from a given sentence and original indices.
+
+        Parameters:
+        - sentence: The concatenated mathematical expressions of all nodes.
+        - original_indices: The original order of nodes before shuffling.
+        - splitter: The string used to split each node's math expression.
+        """
+        expressions = sentence.split(splitter)
+        inverse_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
+        sorted_expressions = [expressions[i] for i in inverse_indices]
+
+        # Clear existing nodes and rebuild from expressions
+        for expr in sorted_expressions:
+            node = DAGWeightedNode.from_math_expression(expr, {**self.node_info, **aug_node_info}, self.mod_val)
+            self.node_info[node.name] = node
+
+        self.sync_node_states()
+
+    @classmethod
+    def from_sentence(cls, 
+                      sentence: str, 
+                      original_indices: List[int], 
+                      splitter: str = ', ', 
+                      aug_node_info: dict = {},
+                      mod_val: int = 19,
+                      **kwargs) -> 'AlgorithmicDAG':
+        """
+        Reconstruct the graph from a given sentence and original indices.
+
+        Parameters:
+        - sentence: The concatenated mathematical expressions of all nodes.
+        - original_indices: The original order of nodes before shuffling.
+        - splitter: The string used to split each node's math expression.
+        - aug_node_info: Additional node information to be used during reconstruction.
+        - mod_val: The modulus value for the operations.
+
+        Returns:
+        - An instance of AlgorithmicDAG.
+        """
+        expressions = sentence.split(splitter)
+        inverse_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
+        sorted_expressions = [expressions[i] for i in inverse_indices]
+
+        # Initialize an empty AlgorithmicDAG instance
+        node_info = {}
+
+        # Clear existing nodes and rebuild from expressions
+        for expr in sorted_expressions:
+            node = DAGWeightedNode.from_math_expression(expr, {**node_info, **aug_node_info}, mod_val)
+            node_info[node.name] = node
+
+        instance = cls(vocab=[], mod_val=mod_val, vocab_obj=node_info, verbose=False, **kwargs)
+        instance.sync_node_states()
+        # check if kwargs has verbose key
+        if 'verbose' in kwargs:
+            if kwargs['verbose']:
+                instance.print_nodes()
+                instance.draw()
+        return instance
 
 def generate_abs_dag(data_config: EasyDict):
 
@@ -398,7 +511,7 @@ def generate_ins_dag(abs_dag, data_config: EasyDict):
         mod_val=data_config.mod_val,
         shuffle_predecessors=True,
         verbose=data_config.verbose,
-        vocab_obj=abs_dag.leaf_nodes_pointer
+        vocab_obj=abs_dag.leaf_nodes_dict
     )
     return ins_dag
 
@@ -415,8 +528,8 @@ if __name__ == "__main__":
     # set the leaf nodes of the ins_dag 
     ins_dag.set_leaf_nodes_value(range(data_config.ins_dag_config.num_leaf_nodes))
     # propogate the values to the rest of the nodes
-    ins_dag.sync_node_values()
-    abs_dag.sync_node_values()
+    ins_dag.sync_node_states()
+    abs_dag.sync_node_states()
     # print the nodes
 
     ins_dag.print_nodes()
@@ -430,3 +543,13 @@ if __name__ == "__main__":
     # reconstruct the node from the math expression
     node = DAGWeightedNode.from_math_expression(math_expr, ins_dag.node_info, mod_val=ins_dag.mod_val)
     node.print_algorithmic_expression()
+
+
+    sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+    print(f"Sentence: {sentence}")
+    print(f"Original Indices: {original_indices}")
+
+    # Expand the DAG from the generated sentence
+    # 
+    ins_dag_new = AlgorithmicDAG.from_sentence(sentence, original_indices, mod_val=ins_dag.mod_val)
+    ins_dag.print_nodes()
