@@ -2,7 +2,15 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import networkx as nx
-from typing import List, Optional
+from typing import List, Optional, Union
+
+# get currentdir
+import os 
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+os.sys.path.insert(0,parentdir)
+from simtransformer.module_base import ConfigBase
+from simtransformer.utils import EasyDict
 
 unk_token = '<unk>'
 pad_token = '<pad>'
@@ -276,6 +284,7 @@ class DAGWeightedNode:
         self.name = name
         self.weight = weight if weight is not None else random.uniform(1.0, 10.0)
         self.fan_in = []  # Stores the fan-in nodes and the applied functions
+        self.depth = 0  # Depth of the node, default is 0
 
     def add_fan_in(self, parent_node, func):
         """
@@ -286,6 +295,7 @@ class DAGWeightedNode:
         - func: the function used to combine the parent node's value with the current value
         """
         self.fan_in.append((parent_node, func))
+        self.depth = max(self.depth, parent_node.depth + 1)
 
     def compute_value(self):
         """
@@ -322,6 +332,7 @@ class AlgorithmicDAG:
                  min_fan_in_deg: int = 1, 
                  max_fan_in_deg: int = 3, 
                  num_leaf_nodes: int = 5,
+                 max_depth: int = 32,
                  func_vocab: Optional[List] = [],
                  mod_val: Optional[int] = 19,
                  shuffle_predecessors: Optional[bool] = False,
@@ -343,7 +354,8 @@ class AlgorithmicDAG:
         self.num_leaf_nodes = num_leaf_nodes
         self.min_fan_in_deg = min_fan_in_deg
         self.max_fan_in_deg = max_fan_in_deg
-        
+        self.max_depth = max_depth
+
         if seed is not None:
             random.seed(seed)
             
@@ -385,10 +397,13 @@ class AlgorithmicDAG:
             if idx > self.num_leaf_nodes - 1:
                 # Previous nodes available for connecting
                 possible_parents = self.vocab[:idx]
-                
+                possible_parents = [parent for parent in possible_parents if self.node_info[parent].depth < self.max_depth]
+                if len(possible_parents) == 0:
+                    raise ValueError("No available parent nodes to connect to, increase the maximum depth")
+
                 # Determine the number of incoming edges (fan-in degree)
-                min_deg = min(self.min_fan_in_deg, idx)  # Ensure it does not exceed the number of available nodes
-                max_deg = min(self.max_fan_in_deg, idx)  # Ensure it does not exceed the number of available nodes
+                min_deg = min(self.min_fan_in_deg, len(possible_parents))  # Ensure it does not exceed the number of available nodes
+                max_deg = min(self.max_fan_in_deg, len(possible_parents))  # Ensure it does not exceed the number of available nodes
                 
                 # Randomly select the number of parents within bounds
                 num_parents = random.randint(min_deg, max_deg)
@@ -397,8 +412,18 @@ class AlgorithmicDAG:
                 parents = random.sample(possible_parents, num_parents)
                 for parent in parents:
                     G.add_edge(parent, node)
+                    self.node_info[node].depth = max(self.node_info[node].depth, self.node_info[parent].depth + 1)
 
         return G
+
+    def update_depths_from_root(self):
+        """
+        Update the depth of each non-leaf node starting from the root node.
+        """
+        for node in nx.topological_sort(self.graph):
+            if not list(self.graph.successors(node)):
+                continue
+            self.node_info[node].depth = max([self.node_info[parent].depth for parent in self.graph.predecessors(node)]) + 1
 
     def _assign_node_weights(self):
         """
@@ -439,9 +464,9 @@ class AlgorithmicDAG:
         """
         plt.figure(figsize=(10, 6))
         pos = nx.spring_layout(self.graph)
-        node_labels = {node: f"{node}\n(weight={self.node_info[node].weight:.2f})" for node in self.graph.nodes}
+        node_labels = {node: f"{node}\n(weight={self.node_info[node].weight:.2f}, depth={self.node_info[node].depth})" for node in self.graph.nodes}
         nx.draw(self.graph, pos, with_labels=True, labels=node_labels, node_color='lightblue', edge_color='gray', node_size=2000, font_size=10)
-        plt.title("Directed Acyclic Graph (DAG) with Node Weights")
+        plt.title("Directed Acyclic Graph (DAG) with Node Weights and Depth")
         plt.show()
         
     @property
@@ -474,3 +499,57 @@ class AlgorithmicDAG:
         assert len(values) == self.num_leaf_nodes, "Number of values must match the number of leaf nodes"
         for i, node in enumerate(self.leaf_nodes):
             self.node_info[node].weight = values[i]
+
+
+def generate_two_level_dag(data_config: EasyDict):
+
+    # Preparing the vocab for the DAG
+    abs_nodes = data_config.abs_nodes
+    vocab = [f'h_{i + 1}' for i in range(abs_nodes)]
+
+    # Initializing the first AlgorithmicDAG object
+    algorithmic_dag_1 = AlgorithmicDAG(
+        vocab=vocab,
+        min_fan_in_deg=data_config.min_fan_in_deg,
+        max_fan_in_deg=data_config.max_fan_in_deg,
+        num_leaf_nodes=data_config.num_abs_leaf_nodes,
+        func_vocab=data_config.func_vocab,
+        mod_val=data_config.mod_val,
+        shuffle_predecessors=False,
+        seed=data_config.random_seed,
+        verbose=data_config.verbose
+    )
+
+    # The first AlgorithmicDAG object has been initialized with vocab ['h_1', 'h_2', ...].
+
+
+if __name__ == "__main__":
+    # Test the AlgorithmicDAG class
+    vocab = ['a', 'b', 'c', 'd', 'e', 'f']
+    func_vocab = [ADD, MUL]
+
+    # Initialize the AlgorithmicDAG object
+    dag = AlgorithmicDAG(
+        vocab=vocab,
+        min_fan_in_deg=1,
+        max_fan_in_deg=2,
+        num_leaf_nodes=2,
+        func_vocab=func_vocab,
+        mod_val=19,
+        shuffle_predecessors=False,
+        seed=42,
+        verbose=True
+    )
+
+    # Set values for the leaf nodes
+    dag.set_leaf_nodes_value([10, 20])
+
+    # Sync node values
+    dag.sync_node_values()
+
+    # Draw the DAG
+    dag.draw()
+
+    # Print algorithmic expressions for all nodes
+    for node in dag.node_info.values():
+        node.print_algorithmic_expression()
