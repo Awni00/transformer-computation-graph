@@ -79,7 +79,7 @@ class DAGWeightedNode:
         """
         self.mod_val = mod_val
         self.name = name
-        self.weight = weight if weight is not None else random.randint(0, mod_val)
+        self.weight = weight if weight is not None else random.randint(0, mod_val - 1)
         self.fan_in = []  # Stores the fan-in nodes and the applied functions
         self.depth = 0  # Depth of the node, default is 0
         self.oper_depth = 0  # Total number of operations needed to compute the node's value
