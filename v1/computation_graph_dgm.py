@@ -315,7 +315,7 @@ class DAGWeightedNode:
         Print an algorithmic expression that represents how the fan-in is calculated.
         """
         if not self.fan_in:
-            print(f"{self.depth:<5}{self.name:<5} = {self.weight:.2f} / No fan-in")
+            print(f"{self.depth:<5}{self.name:<5} = {self.weight:<5.2f} / No fan-in")
         else:
             value = 0
             expression = ""
@@ -323,7 +323,7 @@ class DAGWeightedNode:
                 operation = func.__name__ if hasattr(func, '__name__') else 'func'
                 expression += f" {operation} ({parent_node.name})"
                 value = func.__call__(value, parent_node.weight)
-            expression = f"{self.depth:<5}{self.name:<5} = {self.weight:.2f} / {value} <-" + expression
+            expression = f"{self.depth:<5}{self.name:<5} = {self.weight:<5.2f} / {value: < 5} <-" + expression
             print(expression)
 
 class AlgorithmicDAG:
