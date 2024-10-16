@@ -1,10 +1,20 @@
-num_abs_nodes: 32                  # Number of abstract nodes (e.g., h_1, h_2, ...)
-min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
-max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
-num_abs_leaf_nodes: 6              # Number of leaf nodes
-func_vocab:
-- ADD
-- MUL
-mod_val: 23                        # Base value for modular arithmetic in the DAG
-random_seed: 42                    # Seed for randomization
-verbose: True                      # Whether to print detailed information during DAG generation
+abs_dag_config:
+  num_nodes: 32                  # Number of abstract nodes (e.g., h_1, h_2, ...)
+  min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
+  max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
+  num_leaf_nodes: 6              # Number of leaf nodes
+  func_vocab:
+  - ADD
+  - MUL
+  mod_val: 23                        # Base value for modular arithmetic in the DAG
+  verbose: False                      # Whether to print detailed information during DAG generation
+ins_dag_config:
+  num_nodes: 32                  # Number of abstract nodes (e.g., h_1, h_2, ...)
+  min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
+  max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
+  num_leaf_nodes: 6              # Number of leaf nodes
+  func_vocab:
+  - ADD
+  - MUL
+  mod_val: 23                        # Base value for modular arithmetic in the DAG
+  verbose: False                      # Whether to print detailed information during DAG generation
