@@ -247,27 +247,27 @@ def draw_topological_order(sample, numeric_vocab, query_node=None, rad=-0.8, fig
 
 class ADD:
     def __init__(self, mod_val) -> None:
-        self.mod_val = mod_val
+        self.mod_val = int(mod_val)
     def __call__(self, x, y):
-        return (x + y) % self.mod_val
+        return int((x + y) % self.mod_val)
     @property
     def __name__(self):
         return "ADD"
 
 class MUL:
     def __init__(self, mod_val) -> None:
-        self.mod_val = mod_val
+        self.mod_val = int(mod_val)
     def __call__(self, x, y):
-        return (x * y) % self.mod_val
+        return int((x * y) % self.mod_val)
     @property
     def __name__(self):
         return "MUL"
     
 class EQUL:
     def __init__(self, mod_val) -> None:
-        self.mod_val = mod_val
+        self.mod_val = int(mod_val)
     def __call__(self, x, y):
-        return y % self.mod_val
+        return int(y % self.mod_val)
     @property
     def __name__(self):
         return "EQUL"
@@ -315,7 +315,7 @@ class DAGWeightedNode:
         Print an algorithmic expression that represents how the fan-in is calculated.
         """
         if not self.fan_in:
-            print(f"{self.depth:<5}{self.name:<5} = {self.weight:<5.2f} / No fan-in")
+            print(f"{self.depth:<5}{self.name:<5} = {self.weight:<5} / No fan-in")
         else:
             value = 0
             expression = ""
@@ -323,7 +323,7 @@ class DAGWeightedNode:
                 operation = func.__name__ if hasattr(func, '__name__') else 'func'
                 expression += f" {operation} ({parent_node.name})"
                 value = func.__call__(value, parent_node.weight)
-            expression = f"{self.depth:<5}{self.name:<5} = {self.weight:<5.2f} / {value: < 5} <-" + expression
+            expression = f"{self.depth:<5}{self.name:<5} = {self.weight:<5} / {value: < 5} <-" + expression
             print(expression)
 
 class AlgorithmicDAG:
