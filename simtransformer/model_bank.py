@@ -57,8 +57,8 @@ class GPT2LinearReg(nnModule):
         return output
     
 class LoopGPTBlock(GPT2Standard):
-    def __init__(self, config: EasyDict, input_size: int, output_size: int):
-        super().__init__(config, input_size, output_size)
+    def __init__(self, config: EasyDict, input_size: int, output_size: int, weight_tie: bool = False):
+        super().__init__(config, input_size, output_size, weight_tie)
         self.probe = nn.Linear(config.hidden_size, output_size)
         
     def probe_forward(self, x: Tensor):

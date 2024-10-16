@@ -29,7 +29,7 @@ class TrainingManager(TrainingManagerBase):
         return training_name
     
     def config_pipeline(self):
-        training_model = LoopGPTBlock(self.model_config, input_size=1, output_size=len(self.vocab))
+        training_model = LoopGPTBlock(self.model_config, input_size=1, output_size=len(self.vocab), weight_tie=True)
         loss_p_model = nn.CrossEntropyLoss()
         loss_n_model = None
         return  {
