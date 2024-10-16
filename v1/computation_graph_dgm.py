@@ -405,6 +405,7 @@ class AlgorithmicDAG:
             combined = list(zip(expressions, original_indices))
             random.shuffle(combined)
             expressions, original_indices = zip(*combined)
+            original_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
         return splitter.join(expressions), original_indices
 
     def expand_graph_from_sentence(self, sentence: str, original_indices: List[int], splitter: str = ', ', aug_node_info: dict = {}) -> None:
@@ -417,8 +418,7 @@ class AlgorithmicDAG:
         - splitter: The string used to split each node's math expression.
         """
         expressions = sentence.split(splitter)
-        inverse_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
-        sorted_expressions = [expressions[i] for i in inverse_indices]
+        sorted_expressions = [expressions[i] for i in original_indices]
 
         # Clear existing nodes and rebuild from expressions
         for expr in sorted_expressions:
@@ -449,8 +449,7 @@ class AlgorithmicDAG:
         - An instance of AlgorithmicDAG.
         """
         expressions = sentence.split(splitter)
-        inverse_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
-        sorted_expressions = [expressions[i] for i in inverse_indices]
+        sorted_expressions = [expressions[i] for i in original_indices]
 
         # Initialize an empty AlgorithmicDAG instance
         node_info = {}
@@ -515,7 +514,51 @@ def generate_ins_dag(abs_dag, data_config: EasyDict):
     )
     return ins_dag
 
+import os
+import random
+import json
 
+def generate_dataset(config_path: str):
+    currentdir = os.path.dirname(os.path.realpath(__file__))
+    config_dir = os.path.join(currentdir, config_path)
+    config = ConfigBase(config_dir)
+
+    data_config = config.data_config
+    abs_dag = generate_abs_dag(data_config.abs_dag_config)
+
+    # Fixed abs_dag
+    num_samples = data_config.num_samples
+    dataset = []
+
+    for _ in range(num_samples):
+        ins_dag = generate_ins_dag(abs_dag, data_config.ins_dag_config)
+
+        # Generate sentence and original indices
+        sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+        data_piece = {
+            'sentence': sentence,
+            'original_indices': original_indices
+        }
+
+        # Sync node states for both DAGs
+        ins_dag.sync_node_values()
+        abs_dag.sync_node_values()
+
+        # Randomly pick one node from abs_dag
+        random_node = random.choice(list(abs_dag.node_info.values()))
+        data_piece['question'] = random_node.name
+        data_piece['answer'] = random_node.weight
+
+        # Append data piece to dataset
+        dataset.append(data_piece)
+
+    # Save dataset to specified path
+    data_path = data_config.data_path
+    with open(data_path, 'w') as f:
+        json.dump(dataset, f, indent=4)
+
+    print(f"Dataset saved to {data_path}")
+    
 if __name__ == "__main__":
     currentdir = os.path.dirname(os.path.realpath(__file__))
     config_dir = os.path.join(currentdir, 'configurations')

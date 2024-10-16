@@ -17,4 +17,4 @@ ins_dag_config:
   - ADD
   - MUL
   mod_val: 23                        # Base value for modular arithmetic in the DAG
-  verbose: False                      # Whether to print detailed information during DAG generation
+  verbose: True                      # Whether to print detailed information during DAG generation
