@@ -6,7 +6,7 @@ import torch.nn as nn
 import math
 
 class GPT2Standard(nnModule):
-    def __init__(self, config: EasyDict, input_size: int, output_size: int):
+    def __init__(self, config: EasyDict, input_size: int, output_size: int, weight_tie: bool = False):
         super().__init__()
         self.readin = ReadIn(input_size, config.hidden_size)
         self.encoder = TransformerEncoder(config)
@@ -26,7 +26,8 @@ class GPT2Standard(nnModule):
                 nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * self.model_config.num_layers))
                 
         # add weight tieing for the input and output embeddings
-        self.readout.weight = self.readin.embeddings.weight
+        if weight_tie:
+            self.readout.weight = self.readin.embeddings.weight
 
     def forward(self, input_token_ids: Tensor, mask: Optional[Tensor] = None):
         x = self.readin(input_token_ids)
