@@ -315,7 +315,7 @@ class DAGWeightedNode:
         Print an algorithmic expression that represents how the fan-in is calculated.
         """
         if not self.fan_in:
-            print(f"{self.name} = {self.weight:.2f} / No fan-in")
+            print(f"{self.depth:<5}{self.name:<5} = {self.weight:.2f} / No fan-in")
         else:
             value = 0
             expression = ""
@@ -323,7 +323,7 @@ class DAGWeightedNode:
                 operation = func.__name__ if hasattr(func, '__name__') else 'func'
                 expression += f" {operation} ({parent_node.name})"
                 value = func.__call__(value, parent_node.weight)
-            expression = f"{self.name} = {self.weight:.2f} / {value} <-" + expression
+            expression = f"{self.depth:<5}{self.name:<5} = {self.weight:.2f} / {value} <-" + expression
             print(expression)
 
 class AlgorithmicDAG:
@@ -362,7 +362,7 @@ class AlgorithmicDAG:
         self.verbose = verbose
         
         self.func_vocab = func_vocab if func_vocab else [ADD, MUL]  # Default to addition and multiplication
-        self.graph = self._generate_random_dag()
+
         self.node_info = {}
         for node in vocab:
             if vocab_obj and any(n.name == node for n in vocab_obj):
@@ -375,7 +375,8 @@ class AlgorithmicDAG:
             self.node_info = dict(random.shuffle(list(self.node_info.items())))
         
         self.vocab = [node.name for node in self.node_info.values()] # already in order
-        
+
+        self.graph = self._generate_random_dag()
         self._assign_node_weights()
         self._init_fan_in_method()
 
@@ -497,8 +498,8 @@ class AlgorithmicDAG:
         - values: A list of values for the leaf nodes
         """
         assert len(values) == self.num_leaf_nodes, "Number of values must match the number of leaf nodes"
-        for i, node in enumerate(self.leaf_nodes):
-            self.node_info[node].weight = values[i]
+        for i, node in enumerate(self.leaf_nodes_pointer):
+            node.weight = values[i] % self.mod_val
 
 
 def generate_two_level_dag(data_config: EasyDict):
@@ -525,15 +526,15 @@ def generate_two_level_dag(data_config: EasyDict):
 
 if __name__ == "__main__":
     # Test the AlgorithmicDAG class
-    vocab = ['a', 'b', 'c', 'd', 'e', 'f']
+    vocab = [f'h_{i}' for i in range(1, 29)]
     func_vocab = [ADD, MUL]
 
     # Initialize the AlgorithmicDAG object
     dag = AlgorithmicDAG(
         vocab=vocab,
         min_fan_in_deg=1,
-        max_fan_in_deg=2,
-        num_leaf_nodes=2,
+        max_fan_in_deg=5,
+        num_leaf_nodes=5,
         func_vocab=func_vocab,
         mod_val=19,
         shuffle_predecessors=False,
@@ -542,7 +543,7 @@ if __name__ == "__main__":
     )
 
     # Set values for the leaf nodes
-    dag.set_leaf_nodes_value([10, 20])
+    dag.set_leaf_nodes_value([10, 20, 30, 40, 50])
 
     # Sync node values
     dag.sync_node_values()
