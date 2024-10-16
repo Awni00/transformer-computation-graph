@@ -388,7 +388,7 @@ class ArithmeticDAG:
             node_name, node = node_tuple
             node.weight = values[i] % self.mod_val
 
-    def generate_sentence(self, 
+    def generate_data(self, 
                           splitter: str = ' , ', 
                           shuffle: bool = False, 
                           to_string: bool = True, ) -> str:
@@ -402,10 +402,11 @@ class ArithmeticDAG:
         Returns:
         - A string representing the concatenated mathematical expressions of all nodes.
         """
-        
-        expressions = [self.node_info[node].to_math_expression() for node in nx.topological_sort(self.graph)]
-        depths = [self.node_info[node].depth for node in nx.topological_sort(self.graph)]
-        values = [self.node_info[node].weight for node in nx.topological_sort(self.graph)]
+        sorted_node = list(nx.topological_sort(self.graph))
+        expressions = [self.node_info[node].to_math_expression() for node in sorted_node]
+        depths = [self.node_info[node].depth for node in sorted_node]
+        values = [self.node_info[node].weight for node in sorted_node]
+        opers = [self.node_info[node].oper_depth for node in sorted_node]
 
         original_indices = list(range(len(expressions)))
         if shuffle:
@@ -413,7 +414,7 @@ class ArithmeticDAG:
         if to_string:
             return splitter.join(expressions), original_indices, depths, values
         else: 
-            return expressions, original_indices, depths, values
+            return expressions, original_indices, depths, values, opers
             
 
     def expand_graph_from_sentence(self, sentence: str, original_indices: List[int], splitter: str = ', ', aug_node_info: dict = {}) -> None:
@@ -535,11 +536,12 @@ def generate_simple_dataset(config_path: str):
     dataset = []
     
     for _ in range(num_samples):
-        sentence, original_indices, depths, values = dag.generate_sentence(shuffle=False, to_string=False)
+        sentence, original_indices, depths, values, opers = dag.generate_data(shuffle=False, to_string=False)
         data_piece = {
             'eqs': sentence,
             'depths': depths,
             'values': values,
+            'opers': opers,
         }
         dataset.append(data_piece)
         
@@ -571,7 +573,7 @@ def generate_simple_dataset(config_path: str):
 #         ins_dag = generate_ins_dag(abs_dag, data_config.ins_dag_config)
 
 #         # Generate sentence and original indices
-#         sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+#         sentence, original_indices = ins_dag.generate_data(shuffle=True)
 #         data_piece = {
 #             'sentence': sentence,
 #             'original_indices': original_indices
@@ -627,7 +629,7 @@ if __name__ == "__main__":
     # node.print_algorithmic_expression()
 
 
-    # sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+    # sentence, original_indices = ins_dag.generate_data(shuffle=True)
     # print(f"Sentence: {sentence}")
     # print(f"Original Indices: {original_indices}")
 
