@@ -102,10 +102,17 @@ class Vocab:
             self.vocab = {}
             # get the unique tokens in input
             tokens = set(input)
+            # add special tokens
+            tokens.update(["<eos>", "<pad>"])
             # create a vocab from the tokens
             self.vocab = {token: idx for idx, token in enumerate(tokens)}
         elif isinstance(input, dict):
             self.vocab = input
+            # add special tokens if not already present
+            if "<eos>" not in self.vocab:
+                self.vocab["<eos>"] = len(self.vocab)
+            if "<pad>" not in self.vocab:
+                self.vocab["<pad>"] = len(self.vocab)
         self.reverse_vocab = {v: k for k, v in self.vocab.items()}
         
     @classmethod
@@ -661,8 +668,11 @@ class DataModuleBase(lightning.LightningDataModule):
         """
         for key, val in batch.items():
             if isinstance(val, torch.Tensor):
-                val = val.to(device)
-                batch[key] = val
+                batch[key] = val.to(device)
+            elif isinstance(dict):
+                for k, v in val.items():
+                    if isinstance(v, torch.Tensor):
+                        val[k] = v.to(device)
         return batch
 
 

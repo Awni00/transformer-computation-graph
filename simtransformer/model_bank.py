@@ -24,6 +24,9 @@ class GPT2Standard(nnModule):
         for pn, p in self.named_parameters():
             if pn.endswith(f'mlp.proj.weight') or pn.endswith('o_proj.weight'):
                 nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * self.model_config.num_layers))
+                
+        # add weight tieing for the input and output embeddings
+        self.readout.weight = self.readin.embeddings.weight
 
     def forward(self, input_token_ids: Tensor, mask: Optional[Tensor] = None):
         x = self.readin(input_token_ids)
@@ -51,3 +54,11 @@ class GPT2LinearReg(nnModule):
         x = self.encoder(x, mask)
         output = self.readout(x)
         return output
+    
+class LoopGPTBlock(GPT2Standard):
+    def __init__(self, config: EasyDict, input_size: int, output_size: int):
+        super().__init__(config, input_size, output_size)
+        self.probe = nn.Linear(config.hidden_size, output_size)
+        
+    def probe_forward(self, x: Tensor):
+        return self.probe(x)

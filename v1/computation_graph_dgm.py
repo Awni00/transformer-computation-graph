@@ -146,7 +146,7 @@ class DAGWeightedNode:
             expression = f"{self.depth:<5}{self.name:<5} = {self.weight:<5} / {value: < 5} <-" + expression
             print(expression)
 
-    def to_math_expression(self):
+    def to_math_expression(self, inverse=False):
         """
         Convert the node's information into a mathematical expression.
         
@@ -154,14 +154,15 @@ class DAGWeightedNode:
         - A string representing the mathematical expression of the node.
         """
         if not self.fan_in:
-            return f"{self.name} = {self.weight}"
+            return f"{self.weight} = {self.name}"
         else:
-            expression = f"{self.name} = "
+            expression = ''
             for i, (parent_node, func) in enumerate(self.fan_in):
                 operation = func.__name__ if hasattr(func, '__name__') else 'func'
                 if i > 0:
                     expression += f" {operation} "
                 expression += f"{parent_node.name}"
+            expression += f" = {self.name}"
             return expression
 
     @classmethod
@@ -177,8 +178,8 @@ class DAGWeightedNode:
         - The updated DAGWeightedNode instance.
         """
         parts = expression.split("=")
-        node_name = parts[0].strip()
-        rhs = parts[1].strip()
+        node_name = parts[-1].strip()
+        rhs = parts[0].strip()
         terms = rhs.split()
         node = cls(node_name)
         
@@ -547,7 +548,9 @@ def generate_simple_dataset(config_path: str):
     print(f"Dataset saved to {data_path}")
     
     vocab_path = os.path.join(currentdir, dag_config.data_dir, dag_config.vocab_file_name)
-    clever_save(dag.vocab, vocab_path)
+    
+    vocab = dag.vocab + ['<eos>', '<pad>', ',', '=', 'ADD', 'MUL']
+    clever_save(vocab, vocab_path)
     print(f"Vocab saved to {vocab_path}")
 
 
