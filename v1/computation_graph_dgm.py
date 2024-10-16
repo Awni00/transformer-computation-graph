@@ -282,7 +282,7 @@ class DAGWeightedNode:
         - weight: the weight of the node (default is None)
         """
         self.name = name
-        self.weight = weight if weight is not None else random.uniform(1.0, 10.0)
+        self.weight = weight if weight is not None else random.randint(1, 100)
         self.fan_in = []  # Stores the fan-in nodes and the applied functions
         self.depth = 0  # Depth of the node, default is 0
 
@@ -358,8 +358,6 @@ class AlgorithmicDAG:
 
         if seed is not None:
             random.seed(seed)
-            
-        self.verbose = verbose
         
         self.func_vocab = func_vocab if func_vocab else [ADD, MUL]  # Default to addition and multiplication
 
@@ -377,8 +375,12 @@ class AlgorithmicDAG:
         self.vocab = [node.name for node in self.node_info.values()] # already in order
 
         self.graph = self._generate_random_dag()
-        self._assign_node_weights()
         self._init_fan_in_method()
+        self.sync_node_values()
+
+        if verbose:
+            self.draw()
+            self.print_nodes()
 
     def _generate_random_dag(self):
         """
@@ -426,13 +428,6 @@ class AlgorithmicDAG:
                 continue
             self.node_info[node].depth = max([self.node_info[parent].depth for parent in self.graph.predecessors(node)]) + 1
 
-    def _assign_node_weights(self):
-        """
-        Assign a random weight to each node in the graph.
-        """
-        for node in self.graph.nodes:
-            self.node_info[node].weight = random.uniform(1.0, 10.0)
-
     def _init_fan_in_method(self):
         """
         Init the fan-in method for each node and assign random operations to combine them.
@@ -469,7 +464,14 @@ class AlgorithmicDAG:
         nx.draw(self.graph, pos, with_labels=True, labels=node_labels, node_color='lightblue', edge_color='gray', node_size=2000, font_size=10)
         plt.title("Directed Acyclic Graph (DAG) with Node Weights and Depth")
         plt.show()
-        
+    
+    def print_nodes(self):
+        """
+        Print the algorithmic expressions for all nodes in the graph.
+        """
+        for node in self.graph.nodes:
+            self.node_info[node].print_algorithmic_expression()
+
     @property
     def leaf_nodes_string(self):
         """
@@ -505,16 +507,20 @@ class AlgorithmicDAG:
 def generate_two_level_dag(data_config: EasyDict):
 
     # Preparing the vocab for the DAG
-    abs_nodes = data_config.abs_nodes
-    vocab = [f'h_{i + 1}' for i in range(abs_nodes)]
+    num_abs_nodes = data_config.num_abs_nodes
+    vocab = [f'h_{i + 1}' for i in range(num_abs_nodes)]
 
+    if data_config.func_vocab:
+        func_vocab = [globals()[func_name] for func_name in data_config.func_vocab]
+    else:
+        func_vocab = None
     # Initializing the first AlgorithmicDAG object
     algorithmic_dag_1 = AlgorithmicDAG(
         vocab=vocab,
         min_fan_in_deg=data_config.min_fan_in_deg,
         max_fan_in_deg=data_config.max_fan_in_deg,
         num_leaf_nodes=data_config.num_abs_leaf_nodes,
-        func_vocab=data_config.func_vocab,
+        func_vocab=func_vocab,
         mod_val=data_config.mod_val,
         shuffle_predecessors=False,
         seed=data_config.random_seed,
@@ -525,32 +531,9 @@ def generate_two_level_dag(data_config: EasyDict):
 
 
 if __name__ == "__main__":
-    # Test the AlgorithmicDAG class
-    vocab = [f'h_{i}' for i in range(1, 29)]
-    func_vocab = [ADD, MUL]
+    currentdir = os.path.dirname(os.path.realpath(__file__))
+    config_dir = os.path.join(currentdir, 'configurations')
+    config = ConfigBase(config_dir)
 
-    # Initialize the AlgorithmicDAG object
-    dag = AlgorithmicDAG(
-        vocab=vocab,
-        min_fan_in_deg=1,
-        max_fan_in_deg=5,
-        num_leaf_nodes=5,
-        func_vocab=func_vocab,
-        mod_val=19,
-        shuffle_predecessors=False,
-        seed=42,
-        verbose=True
-    )
-
-    # Set values for the leaf nodes
-    dag.set_leaf_nodes_value([10, 20, 30, 40, 50])
-
-    # Sync node values
-    dag.sync_node_values()
-
-    # Draw the DAG
-    dag.draw()
-
-    # Print algorithmic expressions for all nodes
-    for node in dag.node_info.values():
-        node.print_algorithmic_expression()
+    data_config = config.data_config
+    generate_two_level_dag(data_config)

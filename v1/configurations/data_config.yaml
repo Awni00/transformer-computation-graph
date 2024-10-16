@@ -1,8 +1,10 @@
-abs_nodes: 32                      # Number of abstract nodes (e.g., h_1, h_2, ...)
+num_abs_nodes: 32                  # Number of abstract nodes (e.g., h_1, h_2, ...)
 min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
 max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
-num_abs_leaf_nodes: 8              # Number of leaf nodes
-func_vocab: ['add', 'multiply']    # List of function names available for computation in the DAG
-mod_val: 100                       # Base value for modular arithmetic in the DAG
+num_abs_leaf_nodes: 6              # Number of leaf nodes
+func_vocab:
+- ADD
+- MUL
+mod_val: 23                        # Base value for modular arithmetic in the DAG
 random_seed: 42                    # Seed for randomization
 verbose: True                      # Whether to print detailed information during DAG generation
