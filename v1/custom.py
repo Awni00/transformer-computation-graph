@@ -24,17 +24,12 @@ class TrainingManager(TrainingManagerBase):
         
 
     def get_training_name(self):
-        if self.only_dst:
-            training_name = f'atomic_OnlyDst_L{self.model_config.num_layers}H{self.model_config.num_heads}W{self.train_config.weight_decay}T' + time.strftime("%m%d-%H%M%S") # default
-        else:
-            training_name = f'atomic_Rel_Dst_L{self.model_config.num_layers}H{self.model_config.num_heads}W{self.train_config.weight_decay}T' + time.strftime("%m%d-%H%M%S")
-        # training_name = f'atomic_OnlyDst_L{self.model_config.num_layers}H{self.model_config.num_heads}W{self.train_config.weight_decay}T' + time.strftime("%m%d-%H%M%S") # default
-        # training_name = f'debugRelOnlyM_L{self.model_config.num_layers}H{self.model_config.num_heads}W{self.train_config.weight_decay}T' + time.strftime("%m%d-%H%M%S") # dst only
+        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}W{self.train_config.weight_decay}T' + time.strftime("%m%d-%H%M%S") # default
         print(f"Current training run: {training_name}")
         return training_name
     
     def config_pipeline(self):
-        training_model = GPT2Standard(self.model_config, input_size=self.data_config.vocab_size, output_size=self.data_config.vocab_size)
+        training_model = GPT2Standard(self.model_config, input_size=1, output_size=len(self.vocab))
         loss_p_model = nn.CrossEntropyLoss()
         loss_n_model = None
         return  {
@@ -51,61 +46,60 @@ class TrainingManager(TrainingManagerBase):
         return {
             "data_config": self.data_config, 
             "dir_handler": self.dir_handler,
-            "only_dst": self.only_dst
         }
     
-    def config_probepipeline(self):
-        training_model = self.pipeline.training_model
+    # def config_probepipeline(self):
+    #     training_model = self.pipeline.training_model
         
-        added_probe_target = EasyDict({
-            'readin': {'output': None},
-            'encoder': {'blocks':{}}
-            })
-        block_dict_pointer = added_probe_target.encoder.blocks
-        for name, block in training_model.encoder.blocks.items():
-            block_dict_pointer.update({
-                name: {
-                    # "input": None,
-                    "attn": {"input": None, "output": None}, 
-                    # "attn_res_output": None,
-                    "mlp": {"input": None, "output": None}, 
-                    "output": None,
-                }
-            })
-        added_probe_target_key = added_probe_target.flatten().keys()
+    #     added_probe_target = EasyDict({
+    #         'readin': {'output': None},
+    #         'encoder': {'blocks':{}}
+    #         })
+    #     block_dict_pointer = added_probe_target.encoder.blocks
+    #     for name, block in training_model.encoder.blocks.items():
+    #         block_dict_pointer.update({
+    #             name: {
+    #                 # "input": None,
+    #                 "attn": {"input": None, "output": None}, 
+    #                 # "attn_res_output": None,
+    #                 "mlp": {"input": None, "output": None}, 
+    #                 "output": None,
+    #             }
+    #         })
+    #     added_probe_target_key = added_probe_target.flatten().keys()
         
-        in_channel_size_ls = (len(added_probe_target_key),  probe_pos_len)
-        out_channel_size_ls = [1]
+    #     in_channel_size_ls = (len(added_probe_target_key),  probe_pos_len)
+    #     out_channel_size_ls = [1]
         
-        probe_layer = LinearWithChannel(
-            input_size=self.model_config.hidden_size, 
-            output_size=self.model_config.vocab_size,
-            in_channel_size_ls=in_channel_size_ls,
-            out_channel_size_ls=out_channel_size_ls
-        )
+    #     probe_layer = LinearWithChannel(
+    #         input_size=self.model_config.hidden_size, 
+    #         output_size=self.model_config.vocab_size,
+    #         in_channel_size_ls=in_channel_size_ls,
+    #         out_channel_size_ls=out_channel_size_ls
+    #     )
         
-        added_vis_target = EasyDict({'encoder': {'blocks':{}}})
-        vis_dict_pointer = added_vis_target.encoder.blocks
-        for name, block in training_model.encoder.blocks.items():
-            vis_dict_pointer.update({
-                name: {
-                    "attn": {
-                        "attn_prob": None, 
-                        "logits_query_pos": None,
-                        "logits_pos_key": None,
-                        },
-                }
-            })
-        added_vis_target_key = added_vis_target.flatten().keys()
+    #     added_vis_target = EasyDict({'encoder': {'blocks':{}}})
+    #     vis_dict_pointer = added_vis_target.encoder.blocks
+    #     for name, block in training_model.encoder.blocks.items():
+    #         vis_dict_pointer.update({
+    #             name: {
+    #                 "attn": {
+    #                     "attn_prob": None, 
+    #                     "logits_query_pos": None,
+    #                     "logits_pos_key": None,
+    #                     },
+    #             }
+    #         })
+    #     added_vis_target_key = added_vis_target.flatten().keys()
         
-        return {
-            "probe_config": self.probe_config,
-            "pipeline": self.pipeline,
-            "probe_layer": probe_layer,
-            "probe_loss_model": nn.CrossEntropyLoss(reduction='none'),
-            "added_probe_target_key": added_probe_target_key,
-            "added_vis_target_key": added_vis_target_key
-        }
+    #     return {
+    #         "probe_config": self.probe_config,
+    #         "pipeline": self.pipeline,
+    #         "probe_layer": probe_layer,
+    #         "probe_loss_model": nn.CrossEntropyLoss(reduction='none'),
+    #         "added_probe_target_key": added_probe_target_key,
+    #         "added_vis_target_key": added_vis_target_key
+    #     }
 
 class Pipeline(PipelineBase):
 

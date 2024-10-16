@@ -5,6 +5,15 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.optimizer import Optimizer
 import yaml, json, os
 from lightning.pytorch.utilities.parsing import AttributeDict
+import random
+from typing import Union
+
+def shuffle_with_indices(data: list, indices: Union[range, list]):
+    combined = list(zip(data, indices))
+    random.shuffle(combined)
+    new_data, original_indices = zip(*combined)
+    original_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
+    return new_data, original_indices
 
 def flatten_dict(dictionary, prefix='', separator='.'):
     """

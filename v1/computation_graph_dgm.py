@@ -10,7 +10,7 @@ currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 os.sys.path.insert(0,parentdir)
 from simtransformer.module_base import ConfigBase
-from simtransformer.utils import EasyDict
+from simtransformer.utils import EasyDict, clever_save, clever_load, shuffle_with_indices
 
 unk_token = '<unk>'
 pad_token = '<pad>'
@@ -69,7 +69,7 @@ class EQUL:
         return "EQUL"
 
 class DAGWeightedNode:
-    def __init__(self, name, weight=None):
+    def __init__(self, name, weight=None, mod_val=19):
         """
         Initialize a DAG node with a name and an optional weight.
         
@@ -77,8 +77,9 @@ class DAGWeightedNode:
         - name: the name of the node
         - weight: the weight of the node (default is None)
         """
+        self.mod_val = mod_val
         self.name = name
-        self.weight = weight if weight is not None else random.randint(1, 100)
+        self.weight = weight if weight is not None else random.randint(0, mod_val)
         self.fan_in = []  # Stores the fan-in nodes and the applied functions
         self.depth = 0  # Depth of the node, default is 0
         self.oper_depth = 0  # Total number of operations needed to compute the node's value
@@ -199,7 +200,7 @@ class DAGWeightedNode:
         node.compute_weight()
         return node
     
-class AlgorithmicDAG:
+class ArithmeticDAG:
     def __init__(self, 
                  vocab: List, 
                  min_fan_in_deg: int = 1, 
@@ -241,7 +242,7 @@ class AlgorithmicDAG:
 
         for node in vocab:
             if node not in self.node_info:
-                self.node_info[node] = DAGWeightedNode(node)
+                self.node_info[node] = DAGWeightedNode(node, mod_val=self.mod_val)
                 
         if shuffle_predecessors:
             # shuffle the node_info dictionary to randomize the order of the nodes
@@ -386,7 +387,10 @@ class AlgorithmicDAG:
             node_name, node = node_tuple
             node.weight = values[i] % self.mod_val
 
-    def generate_sentence(self, splitter: str = ', ', shuffle: bool = False) -> str:
+    def generate_sentence(self, 
+                          splitter: str = ' , ', 
+                          shuffle: bool = False, 
+                          to_string: bool = True, ) -> str:
         """
         Generate a sentence by iteratively calling `to_math_expression` method of all nodes.
 
@@ -399,14 +403,17 @@ class AlgorithmicDAG:
         """
         
         expressions = [self.node_info[node].to_math_expression() for node in nx.topological_sort(self.graph)]
+        depths = [self.node_info[node].depth for node in nx.topological_sort(self.graph)]
+        values = [self.node_info[node].weight for node in nx.topological_sort(self.graph)]
 
         original_indices = list(range(len(expressions)))
         if shuffle:
-            combined = list(zip(expressions, original_indices))
-            random.shuffle(combined)
-            expressions, original_indices = zip(*combined)
-            original_indices = sorted(range(len(original_indices)), key=lambda k: original_indices[k])
-        return splitter.join(expressions), original_indices
+            expressions, original_indices = shuffle_with_indices(expressions, original_indices)
+        if to_string:
+            return splitter.join(expressions), original_indices, depths, values
+        else: 
+            return expressions, original_indices, depths, values
+            
 
     def expand_graph_from_sentence(self, sentence: str, original_indices: List[int], splitter: str = ', ', aug_node_info: dict = {}) -> None:
         """
@@ -417,7 +424,7 @@ class AlgorithmicDAG:
         - original_indices: The original order of nodes before shuffling.
         - splitter: The string used to split each node's math expression.
         """
-        expressions = sentence.split(splitter)
+        expressions = sentence.split(splitter) if isinstance(sentence, str) else sentence
         sorted_expressions = [expressions[i] for i in original_indices]
 
         # Clear existing nodes and rebuild from expressions
@@ -434,7 +441,7 @@ class AlgorithmicDAG:
                       splitter: str = ', ', 
                       aug_node_info: dict = {},
                       mod_val: int = 19,
-                      **kwargs) -> 'AlgorithmicDAG':
+                      **kwargs) -> 'ArithmeticDAG':
         """
         Reconstruct the graph from a given sentence and original indices.
 
@@ -446,12 +453,12 @@ class AlgorithmicDAG:
         - mod_val: The modulus value for the operations.
 
         Returns:
-        - An instance of AlgorithmicDAG.
+        - An instance of ArithmeticDAG.
         """
-        expressions = sentence.split(splitter)
+        expressions = sentence.split(splitter) if isinstance(sentence, str) else sentence
         sorted_expressions = [expressions[i] for i in original_indices]
 
-        # Initialize an empty AlgorithmicDAG instance
+        # Initialize an empty ArithmeticDAG instance
         node_info = {}
 
         # Clear existing nodes and rebuild from expressions
@@ -478,8 +485,8 @@ def generate_abs_dag(data_config: EasyDict):
         func_vocab = [globals()[func_name] for func_name in data_config.func_vocab]
     else:
         func_vocab = None
-    # Initializing the first AlgorithmicDAG object
-    abs_dag = AlgorithmicDAG(
+    # Initializing the first ArithmeticDAG object
+    abs_dag = ArithmeticDAG(
         vocab=vocab,
         min_fan_in_deg=data_config.min_fan_in_deg,
         max_fan_in_deg=data_config.max_fan_in_deg,
@@ -501,7 +508,7 @@ def generate_ins_dag(abs_dag, data_config: EasyDict):
     else:
         func_vocab = None
     # Initializing the ins_dag with the leaf nodes of abs_dag as vocab_obj
-    ins_dag = AlgorithmicDAG(
+    ins_dag = ArithmeticDAG(
         vocab=vocab,
         min_fan_in_deg=data_config.min_fan_in_deg,
         max_fan_in_deg=data_config.max_fan_in_deg,
@@ -514,85 +521,114 @@ def generate_ins_dag(abs_dag, data_config: EasyDict):
     )
     return ins_dag
 
-import os
-import random
-import json
-
-def generate_dataset(config_path: str):
+def generate_simple_dataset(config_path: str):
     currentdir = os.path.dirname(os.path.realpath(__file__))
     config_dir = os.path.join(currentdir, config_path)
     config = ConfigBase(config_dir)
-
+    
     data_config = config.data_config
-    abs_dag = generate_abs_dag(data_config.abs_dag_config)
-
-    # Fixed abs_dag
+    dag_config = data_config.dag_config
+    dag = generate_abs_dag(dag_config)
+    
     num_samples = data_config.num_samples
     dataset = []
-
+    
     for _ in range(num_samples):
-        ins_dag = generate_ins_dag(abs_dag, data_config.ins_dag_config)
-
-        # Generate sentence and original indices
-        sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+        sentence, original_indices, depths, values = dag.generate_sentence(shuffle=False, to_string=False)
         data_piece = {
-            'sentence': sentence,
-            'original_indices': original_indices
+            'eqs': sentence,
+            'depths': depths,
+            'values': values,
         }
-
-        # Sync node states for both DAGs
-        ins_dag.sync_node_values()
-        abs_dag.sync_node_values()
-
-        # Randomly pick one node from abs_dag
-        random_node = random.choice(list(abs_dag.node_info.values()))
-        data_piece['question'] = random_node.name
-        data_piece['answer'] = random_node.weight
-
-        # Append data piece to dataset
         dataset.append(data_piece)
-
-    # Save dataset to specified path
-    data_path = data_config.data_path
-    with open(data_path, 'w') as f:
-        json.dump(dataset, f, indent=4)
-
+        
+    data_path = os.path.join(currentdir, dag_config.data_dir, dag_config.data_file_name)
+    clever_save(dataset, data_path)
     print(f"Dataset saved to {data_path}")
     
+    vocab_path = os.path.join(currentdir, dag_config.data_dir, dag_config.vocab_file_name)
+    clever_save(dag.vocab, vocab_path)
+    print(f"Vocab saved to {vocab_path}")
+
+
+
+# def generate_hirarchy_dataset(config_path: str):
+#     currentdir = os.path.dirname(os.path.realpath(__file__))
+#     config_dir = os.path.join(currentdir, config_path)
+#     config = ConfigBase(config_dir)
+
+#     data_config = config.data_config
+#     abs_dag = generate_abs_dag(data_config.abs_dag_config)
+
+#     # Fixed abs_dag
+#     num_samples = data_config.num_samples
+#     dataset = []
+
+#     for _ in range(num_samples):
+#         ins_dag = generate_ins_dag(abs_dag, data_config.ins_dag_config)
+
+#         # Generate sentence and original indices
+#         sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+#         data_piece = {
+#             'sentence': sentence,
+#             'original_indices': original_indices
+#         }
+
+#         # Sync node states for both DAGs
+#         ins_dag.sync_node_values()
+#         abs_dag.sync_node_values()
+
+#         # Randomly pick one node from abs_dag
+#         random_node = random.choice(list(abs_dag.node_info.values()))
+#         data_piece['question'] = random_node.name
+#         data_piece['answer'] = random_node.weight
+
+#         # Append data piece to dataset
+#         dataset.append(data_piece)
+
+#     # Save dataset to specified path
+#     data_path = data_config.data_path
+#     with open(data_path, 'w') as f:
+#         json.dump(dataset, f, indent=4)
+
+#     print(f"Dataset saved to {data_path}")
+    
 if __name__ == "__main__":
+    
     currentdir = os.path.dirname(os.path.realpath(__file__))
     config_dir = os.path.join(currentdir, 'configurations')
+    generate_simple_dataset(config_dir)
+
     config = ConfigBase(config_dir)
+    # data_config = config.data_config
+    # abs_dag = generate_abs_dag(data_config.abs_dag_config)
+    # ins_dag = generate_ins_dag(abs_dag, data_config.ins_dag_config)
 
-    data_config = config.data_config
-    abs_dag = generate_abs_dag(data_config.abs_dag_config)
-    ins_dag = generate_ins_dag(abs_dag, data_config.ins_dag_config)
+    # # set the leaf nodes of the ins_dag 
+    # ins_dag.set_leaf_nodes_value(range(data_config.ins_dag_config.num_leaf_nodes))
+    # # propogate the values to the rest of the nodes
+    # ins_dag.sync_node_states()
+    # abs_dag.sync_node_states()
+    # # print the nodes
 
-    # set the leaf nodes of the ins_dag 
-    ins_dag.set_leaf_nodes_value(range(data_config.ins_dag_config.num_leaf_nodes))
-    # propogate the values to the rest of the nodes
-    ins_dag.sync_node_states()
-    abs_dag.sync_node_states()
-    # print the nodes
+    # ins_dag.print_nodes()
+    # abs_dag.print_nodes()
 
-    ins_dag.print_nodes()
-    abs_dag.print_nodes()
+    # # randomly take a node from ins_dag
+    # node = random.choice(list(ins_dag.graph.nodes))
+    # math_expr = ins_dag.node_info[node].to_math_expression()
+    # print(f"Node: {node}, Math Expression: {math_expr}")
 
-    # randomly take a node from ins_dag
-    node = random.choice(list(ins_dag.graph.nodes))
-    math_expr = ins_dag.node_info[node].to_math_expression()
-    print(f"Node: {node}, Math Expression: {math_expr}")
-
-    # reconstruct the node from the math expression
-    node = DAGWeightedNode.from_math_expression(math_expr, ins_dag.node_info, mod_val=ins_dag.mod_val)
-    node.print_algorithmic_expression()
+    # # reconstruct the node from the math expression
+    # node = DAGWeightedNode.from_math_expression(math_expr, ins_dag.node_info, mod_val=ins_dag.mod_val)
+    # node.print_algorithmic_expression()
 
 
-    sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
-    print(f"Sentence: {sentence}")
-    print(f"Original Indices: {original_indices}")
+    # sentence, original_indices = ins_dag.generate_sentence(shuffle=True)
+    # print(f"Sentence: {sentence}")
+    # print(f"Original Indices: {original_indices}")
 
-    # Expand the DAG from the generated sentence
-    # 
-    ins_dag_new = AlgorithmicDAG.from_sentence(sentence, original_indices, mod_val=ins_dag.mod_val)
-    ins_dag.print_nodes()
+    # # Expand the DAG from the generated sentence
+    # # 
+    # ins_dag_new = ArithmeticDAG.from_sentence(sentence, original_indices, mod_val=ins_dag.mod_val)
+    # ins_dag.print_nodes()
