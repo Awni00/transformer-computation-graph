@@ -669,7 +669,7 @@ class DataModuleBase(lightning.LightningDataModule):
         for key, val in batch.items():
             if isinstance(val, torch.Tensor):
                 batch[key] = val.to(device)
-            elif isinstance(dict):
+            elif isinstance(val, dict):
                 for k, v in val.items():
                     if isinstance(v, torch.Tensor):
                         val[k] = v.to(device)

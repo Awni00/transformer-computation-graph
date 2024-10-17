@@ -28,7 +28,7 @@ class TrainingManager(TrainingManagerBase):
         return training_name
     
     def config_pipeline(self):
-        training_model = LoopGPTBlock(self.model_config, input_size=1, output_size=len(self.vocab), weight_tie=True)
+        training_model = LoopGPTBlock(self.model_config, len(self.vocab), weight_tie=True)
         loss_p_model = nn.CrossEntropyLoss()
         loss_n_model = nn.CrossEntropyLoss()
         return  {
@@ -177,7 +177,7 @@ class Pipeline(PipelineBase):
             loss_ls[-1] = self.loss_p_model(selected_output, selected_label)
 
             # compute mrr 
-            mrr_ls.append(MRR_fn(selected_output, selected_label))
+            mrr_ls[-1] = MRR_fn(selected_output, selected_label)
 
         # final output
         output = self.training_model.readout(hidden_state)
@@ -186,7 +186,7 @@ class Pipeline(PipelineBase):
         if self.loss_n_model is not None:
             output_n = output[:, :-1, :]
             y_n = y[:, 1:]
-            loss_n = self.loss_n_model(output_n.view(-1, output_n.size(-1)), y_n.view(-1))
+            loss_n = self.loss_n_model(output_n.reshape(-1, output_n.size(-1)), y_n.reshape(-1))
         else: 
             loss_n = 0.0
 

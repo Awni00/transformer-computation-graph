@@ -6,11 +6,11 @@ import torch.nn as nn
 import math
 
 class GPT2Standard(nnModule):
-    def __init__(self, config: EasyDict, input_size: int, output_size: int, weight_tie: bool = False):
+    def __init__(self, config: EasyDict, vocab_size: int, weight_tie: bool = False):
         super().__init__()
-        self.readin = ReadIn(input_size, config.hidden_size)
+        self.readin = ReadIn(vocab_size, config.hidden_size)
         self.encoder = TransformerEncoder(config)
-        self.readout = ReadOut(config.hidden_size, output_size)
+        self.readout = ReadOut(config.hidden_size, vocab_size)
         
         self.model_config = config
         # ## ----------  initialization ---------- ##
@@ -57,7 +57,7 @@ class GPT2LinearReg(nnModule):
         return output
     
 class LoopGPTBlock(GPT2Standard):
-    def __init__(self, config: EasyDict, input_size: int, output_size: int, weight_tie: bool = False):
-        super().__init__(config, input_size, output_size, weight_tie)
-        self.probe = nn.Linear(config.hidden_size, output_size)
+    def __init__(self, config: EasyDict, vocab_size: int, weight_tie: bool = False):
+        super().__init__(config, vocab_size, weight_tie)
+        self.probe = nn.Linear(config.hidden_size, vocab_size)
 
