@@ -18,8 +18,7 @@ class Config(ConfigBase):
     pass
 
 class TrainingManager(TrainingManagerBase):
-    def __init__(self, dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule, only_dst=False):
-        self.only_dst = only_dst
+    def __init__(self, dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule):
         super(TrainingManager, self).__init__(dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule)
         
 
@@ -53,7 +52,6 @@ class DataModule(DataModuleBase):
     def __init__(self, data_config, dir_handler, only_dst=False):
         super(DataModule, self).__init__(data_config, dir_handler)
         self.only_dst = only_dst
-        self.tokenizer
 
     def train_val_test_split(self, data):
         # split data into train, validation, and test sets by ratio 90:5:5
