@@ -15,7 +15,7 @@ def train_start(**kwargs):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
     grandparent_dir = os.path.dirname(parent_dir)
-    task_dir = os.path.join(current_dir, 'tk_comp_atomic')
+    task_dir = os.path.join(parent_dir)
 
     dir_handler = DirectoryHandler(
         load_data_abs_dir=os.path.join(task_dir, 'data'),

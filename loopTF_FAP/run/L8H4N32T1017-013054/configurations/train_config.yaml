@@ -1,0 +1,26 @@
+StepLR_scheduler_config:
+  gamma: 0.1
+  step_size: 1000
+add_med_loss_prob:
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+- 1.0
+batch_size: 64
+cosine_scheduler_config:
+  lr_decay_steps: 300000.0
+  min_lr: 1.0e-05
+  warmup_steps: 1000
+learning_rate: 0.001
+lr_scheduler: cosine
+max_dep: 5
+max_epochs: 500
+max_oper: 20
+num_workers: 16
+optimizer: AdamW
+seed: 41
+wandb_config:
+  wandb_entity: transformer-computation-graph
+  wandb_project: loopTF-FAP
+weight_decay: 0.008

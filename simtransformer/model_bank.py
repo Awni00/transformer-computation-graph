@@ -27,7 +27,7 @@ class GPT2Standard(nnModule):
                 
         # add weight tieing for the input and output embeddings
         if weight_tie:
-            self.readout.weight = self.readin.embeddings.weight
+            self.readout.emb2idx.weight = self.readin.idx2emb.weight
 
     def forward(self, input_token_ids: Tensor, mask: Optional[Tensor] = None):
         x = self.readin(input_token_ids)

@@ -36,7 +36,6 @@ class TrainingManager(TrainingManagerBase):
             "training_model": training_model,
             "loss_p_model": loss_p_model,
             "loss_n_model": loss_n_model,
-            "only_dst": self.only_dst
         }
     
     def config_datamodule(self):
