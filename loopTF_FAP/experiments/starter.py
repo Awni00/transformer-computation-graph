@@ -30,7 +30,7 @@ def train_start(**kwargs):
 
     training_manager = TrainingManager(
             dir_handler=dir_handler,
-            use_wandb=False,
+            use_wandb=kwargs['use_wandb'],
             abstract_config=Config, 
             abstract_pipeline=Pipeline,
             abstract_datamodule=DataModule,
