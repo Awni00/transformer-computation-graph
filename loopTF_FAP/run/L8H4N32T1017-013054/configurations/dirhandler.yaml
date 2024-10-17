@@ -1,8 +1,0 @@
-create_run_under_abs_dir: c:\Users\19605\OneDrive\desktop\transformer-computation-graph\loopTF_FAP
-data_file_name: dag.json
-load_ckpt_abs_path: null
-load_config_abs_dir: c:\Users\19605\OneDrive\desktop\transformer-computation-graph\loopTF_FAP\configurations
-load_data_abs_dir: c:\Users\19605\OneDrive\desktop\transformer-computation-graph\loopTF_FAP\data
-output_abs_dir: c:\Users\19605\OneDrive\desktop\transformer-computation-graph\loopTF_FAP\run\L8H4N32T1017-013054
-training_name: L8H4N32T1017-013054
-vocab_file_name: dag_vocab.yaml
