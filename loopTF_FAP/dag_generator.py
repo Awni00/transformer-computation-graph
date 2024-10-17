@@ -493,6 +493,7 @@ def generate_abs_dag(data_config: EasyDict):
         min_fan_in_deg=data_config.min_fan_in_deg,
         max_fan_in_deg=data_config.max_fan_in_deg,
         num_leaf_nodes=data_config.num_leaf_nodes,
+        max_depth=data_config.max_depth,
         func_vocab=func_vocab,
         mod_val=data_config.mod_val,
         shuffle_predecessors=False,

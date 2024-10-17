@@ -23,6 +23,7 @@ dag_config:
   min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
   max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
   num_leaf_nodes: 6              # Number of leaf nodes
+  max_depth: 16                     # Maximum depth of the DAG
   func_vocab:
   - ADD
   # - MUL
@@ -31,4 +32,4 @@ dag_config:
   data_dir: data
   data_file_name: dag.json
   vocab_file_name: dag_vocab.yaml
-num_samples: 100000
+num_samples: 50000
