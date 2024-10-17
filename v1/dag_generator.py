@@ -551,7 +551,7 @@ def generate_simple_dataset(config_path: str):
     
     vocab_path = os.path.join(currentdir, dag_config.data_dir, dag_config.vocab_file_name)
     
-    vocab = dag.vocab + ['<eos>', '<pad>', ',', '=', 'ADD', 'MUL']
+    vocab = dag.vocab + [f'{i}' for i in range(dag_config.mod_val)] + ['<eos>', '<pad>', ',', '=', 'ADD', 'MUL']
     clever_save(vocab, vocab_path)
     print(f"Vocab saved to {vocab_path}")
 

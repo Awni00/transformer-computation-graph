@@ -31,4 +31,4 @@ dag_config:
   data_dir: data
   data_file_name: dag.json
   vocab_file_name: dag_vocab.yaml
-num_samples: 1000
+num_samples: 100000
