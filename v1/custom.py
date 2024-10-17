@@ -31,7 +31,7 @@ class TrainingManager(TrainingManagerBase):
     def config_pipeline(self):
         training_model = LoopGPTBlock(self.model_config, input_size=1, output_size=len(self.vocab), weight_tie=True)
         loss_p_model = nn.CrossEntropyLoss()
-        loss_n_model = None
+        loss_n_model = nn.CrossEntropyLoss()
         return  {
             "train_config": self.train_config,
             "training_model": training_model,
@@ -47,152 +47,7 @@ class TrainingManager(TrainingManagerBase):
             "data_config": self.data_config, 
             "dir_handler": self.dir_handler,
         }
-
-class Pipeline(PipelineBase):
-
-    def __init__(self, train_config, training_model, loss_p_model, loss_n_model):
-        """
-        add only_dst parameter to Pipeline class
-        """
-        super(Pipeline, self).__init__(train_config, training_model, loss_p_model, loss_n_model)
-
-
-    def _Step(self, batch, batch_idx, step_type: Optional[str] = None):
-        ## --------- forward pass --------- ##
-        
-        # print("batch", batch)
-        train_batch, _, batch_info = self._unpack_batch(batch)
-        x, y, mask = train_batch
-        # x (batch_size, seq_len, Optional)
-        # y (batch_size, seq_len, Optional)
-        # mask (batch_size, seq_len)
-
-        output = self.training_model(x)
-
-        # compute the loss for the masked position
-        # y_msk_p = self._mask_select(y, mask)
-
-        if self.only_dst:
-            y_msk_p_dst = self._mask_select(y, mask)
-            output_msk_p_dst = self._mask_select(output, mask)
-
-            loss_p_dst = self.loss_p_model(output_msk_p_dst, y_msk_p_dst)
-            loss_p_rel = 0.0
-        else:
-            # (assuming each seq_len has exactly two True values)
-            mask_rel, mask_dst = self._split_mask(mask)
-
-            # Select the targets and outputs corresponding to the relation (rel) and destination (dst)
-            y_msk_p_rel = self._mask_select(y, mask_rel)  # Select for relation
-            output_msk_p_rel = self._mask_select(output, mask_rel)  # Model's output for relation
-
-            y_msk_p_dst = self._mask_select(y, mask_dst)  # Select for destination
-            output_msk_p_dst = self._mask_select(output, mask_dst) 
-
-            loss_p_rel = self.loss_p_model(output_msk_p_rel, y_msk_p_rel)
-            loss_p_dst = self.loss_p_model(output_msk_p_dst, y_msk_p_dst)
-
-        loss_p = loss_p_rel + loss_p_dst
-
-        # compute the loss for the non-masked position
-        y_msk_n = self._mask_select(y, ~mask)
-        output_msk_n = self._mask_select(output, ~mask)
-
-        if len(y_msk_n) > 0 and self.loss_n_model is not None:
-            loss_n = self.loss_n_model(output_msk_n, y_msk_n)
-        else:
-            loss_n = 0.0
-
-        ## --------- log training loss --------- ##
-        if step_type is not None:
-            if self.loss_n_model is not None:
-                self.log(step_type + "_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-                self.log(step_type + "_loss_p", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-            self.log(step_type + "_loss", loss_p + loss_n, prog_bar=True, on_epoch=True, logger=True, batch_size=self.len_batch(batch)) # should always log the total loss as 'val_loss' is used for ckpt saving
-
-            if not self.only_dst:
-                self.log(step_type + "_loss_rel", loss_p_rel, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-            self.log(step_type + "_loss_dst", loss_p_dst, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-            # don't change the log name step_type + '_loss' as it is used for ckpt saving
-
-        return loss_p, loss_n, output
-
-    def training_step_end(self, training_step_outputs):
-        loss = training_step_outputs['loss']
-        loss_p = training_step_outputs['loss_p']
-        loss_n = training_step_outputs['loss_n']
-        output = training_step_outputs['output']
-        batch = training_step_outputs['batch']
-        train_batch, _, _ = self._unpack_batch(batch)
-        x, y, mask = train_batch
-
-        if self.only_dst:
-            y_msk_p_dst = self._mask_select(y, mask)
-            output_msk_p_dst = self._mask_select(output, mask)
-
-            mrr_dst = MRR_fn(output_msk_p_dst, y_msk_p_dst)
-        
-        else:
-            mask_rel, mask_dst = self._split_mask(mask)
-
-            y_msk_p_rel = self._mask_select(y, mask_rel)
-            output_msk_p_rel = self._mask_select(output, mask_rel)
-
-            y_msk_p_dst = self._mask_select(y, mask_dst)
-            output_msk_p_dst = self._mask_select(output, mask_dst)
-
-            # y_msk_p = self._mask_select(y, mask)
-            # output_msk_p = self._mask_select(output, mask)
-            
-            # mrr = MRR_fn(output_msk_p, y_msk_p)
-            mrr_rel = MRR_fn(output_msk_p_rel, y_msk_p_rel)
-            mrr_dst = MRR_fn(output_msk_p_dst, y_msk_p_dst)
-
-        # log mrr
-        # self.log('train_mrr', mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        if not self.only_dst:
-            self.log('train_mrr_rel', mrr_rel, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        self.log('train_mrr_dst', mrr_dst, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-
-        
-    def validation_step_end(self, validation_step_outputs):
-        loss = validation_step_outputs['loss']
-        loss_p = validation_step_outputs['loss_p']
-        loss_n = validation_step_outputs['loss_n']
-        output = validation_step_outputs['output']
-        batch = validation_step_outputs['batch']
-        train_batch, _, _ = self._unpack_batch(batch)
-        x, y, mask = train_batch
-
-        if self.only_dst:
-            y_msk_p_dst = self._mask_select(y, mask)
-            output_msk_p_dst = self._mask_select(output, mask)
-
-            mrr_dst = MRR_fn(output_msk_p_dst, y_msk_p_dst)
-        
-        else:
-            mask_rel, mask_dst = self._split_mask(mask)
-
-            y_msk_p_rel = self._mask_select(y, mask_rel)
-            output_msk_p_rel = self._mask_select(output, mask_rel)
-
-            y_msk_p_dst = self._mask_select(y, mask_dst)
-            output_msk_p_dst = self._mask_select(output, mask_dst)
-            
-            # y_msk_p = self._mask_select(y, mask)
-            # output_msk_p = self._mask_select(output, mask)
-            
-            # mrr = MRR_fn(output_msk_p, y_msk_p)
-            mrr_rel = MRR_fn(output_msk_p_rel, y_msk_p_rel)
-            mrr_dst = MRR_fn(output_msk_p_dst, y_msk_p_dst)
-
-        # log mrr
-        # self.log('val_mrr', mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        if not self.only_dst:
-            self.log('val_mrr_rel', mrr_rel, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        self.log('val_mrr_dst', mrr_dst, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        
-        
+       
 
 class DataModule(DataModuleBase):
     def __init__(self, data_config, dir_handler, only_dst=False):
@@ -215,9 +70,12 @@ class DataModule(DataModuleBase):
         
         x_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.long).fill_(self.vocab["<pad>"])
         y_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.long)
-        dep_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.long)
-        batch_info = []
-        msk_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.bool)
+        
+        # initialize the depth and operation tensors with a large number
+        dep_tensor = torch.full((len(batch), max_seq_len), torch.iinfo(torch.long).max, dtype=torch.long)
+        oper_tensor = torch.full((len(batch), max_seq_len), torch.iinfo(torch.long).max, dtype=torch.long)
+        
+        msk_tensor = None
         probe_msk_tensor = None
         probe_label = None
         
@@ -232,15 +90,11 @@ class DataModule(DataModuleBase):
             para_pos = sentence_idx.index(self.vocab['=']) + 1
             # the depth of the target is given by batch[i]['depths'], which is a list of the same size as para_pos
             dep_tensor[i, para_pos] = torch.tensor(sample['depths'], dtype=torch.long)
+
+            oper_tensor[i, para_pos] = torch.tensor(sample['opers'], dtype=torch.long)
             
             y_tensor[i, para_pos] = torch.tensor(sample['values'], dtype=torch.long)
-            
-            msk_tensor[i, para_pos] = True
-            
-            # batch_info.append({
-            #     "pos": para_pos,
-            #     "depth": depth
-            # })
+        
             
         return EasyDict({
             "prompt": x_tensor,
@@ -249,7 +103,121 @@ class DataModule(DataModuleBase):
             "probe_label": probe_label,
             "probe_mask": probe_msk_tensor,
             "batch_info": {
-                "dep": dep_tensor
+                "dep": dep_tensor, 
+                "oper": oper_tensor
             }
         })
-    
+
+class Pipeline(PipelineBase):
+
+    def __init__(self, train_config, training_model, loss_p_model, loss_n_model):
+        """
+        add only_dst parameter to Pipeline class
+        """
+        super(Pipeline, self).__init__(train_config, training_model, loss_p_model, loss_n_model)
+        self.max_oper = self.train_config.max_oper
+        self.max_dep = self.train_config.max_dep
+
+        self.med_loss_counter = [0 for _ in range(self.max_dep)]
+
+
+
+    def _Step(self, batch, batch_idx, step_type: Optional[str] = None):
+        ## --------- forward pass --------- ##
+        
+        # print("batch", batch)
+        train_batch, _, batch_info = self._unpack_batch(batch)
+        x, y, mask = train_batch
+        dep, oper = batch_info['dep'], batch_info['oper']
+        
+        # x (batch_size, seq_len, Optional)
+        # y (batch_size, seq_len, Optional)
+        # mask (batch_size, seq_len)
+
+        token_embedding = self.training_model.readin(x)
+        hidden_state = token_embedding
+        loss_ls = []
+        mrr_ls = []
+        loss_counter = []
+        
+        for cur_dep in range(self.max_dep):
+            loss_ls.append(None)
+            mrr_ls.append(None)
+            loss_counter.append(0)
+            
+            if cur_dep == 0:
+                hidden_state = self.training_model.encoder(token_embedding)
+            else: 
+                hidden_state = self.training_model.encoder(hidden_state + token_embedding) # shape (batch_size, seq_len, hidden_size)
+                # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
+            
+            # find all the indices in dep that are equal to cur_dep and dep < max_dep
+            indices = torch.where(torch.logical_and(dep == cur_dep, dep < self.max_dep))
+            
+            selected_state = self._mask_select(hidden_state, indices)
+            selected_label = self._mask_select(y, indices)
+            if selected_state.numel() == 0:
+                continue
+            
+            add_med_loss_prob = self.train_config.add_med_loss_prob[cur_dep] if len(self.train_config.add_med_loss_prob) > cur_dep else 1.0
+            
+            num_selected = selected_state.size(0)
+            # select a subset of range(num_selected) to add the medium loss
+            med_loss_indices = torch.randperm(num_selected)[:int(add_med_loss_prob*num_selected)]
+
+            if len(med_loss_indices) == 0:
+                continue
+
+            selected_state = selected_state[med_loss_indices]
+            selected_label = selected_label[med_loss_indices]
+            
+            # update loss counter
+            self.med_loss_counter[cur_dep] += len(med_loss_indices)
+            loss_counter[cur_dep] += len(med_loss_indices)
+
+            selected_output = self.training_model.readout(selected_state)
+            # compute loss
+            loss_ls[-1] = self.loss_p_model(selected_output, selected_label)
+
+            # compute mrr 
+            mrr_ls.append(MRR_fn(selected_output, selected_label))
+
+        # final output
+        output = self.training_model.readout(hidden_state)
+
+        # also do next token prediction loss 
+        if self.loss_n_model is not None:
+            output_n = output[:, :-1, :]
+            y_n = y[:, 1:]
+            loss_n = self.loss_n_model(output_n.view(-1, output_n.size(-1)), y_n.view(-1))
+        else: 
+            loss_n = 0.0
+
+        loss_p = 0.0
+        mrr = 0.0
+        num_effective_dep = 0
+        for i, loss_i in enumerate(loss_ls):
+            if loss_i is not None:
+                loss_p += loss_i
+                mrr += mrr_ls[i] 
+                num_effective_dep += 1
+                # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
+
+                self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+                self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+        
+        if num_effective_dep > 0:
+            loss_p /= num_effective_dep
+            mrr /= num_effective_dep
+        else:
+            return None
+
+        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+        if self.loss_n_model is not None:
+            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+
+        return loss_p, loss_n, output
+
+        
+ 
