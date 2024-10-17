@@ -83,14 +83,14 @@ class DataModule(DataModuleBase):
             
             x_tensor[i, :] = copy.deepcopy(torch.tensor(sentence_idx_padded))
             
-            # find the position of '=' and add 1 to get the position of the target
-            para_pos = sentence_idx.index(self.vocab['=']) + 1
-            # the depth of the target is given by batch[i]['depths'], which is a list of the same size as para_pos
-            dep_tensor[i, para_pos] = torch.tensor(sample['depths'], dtype=torch.long)
+            # find all positions of '=' and add 1 to get the positions of the targets
+            var_pos = [idx + 1 for idx, word in enumerate(sentence_idx) if word == self.vocab['=']]
+            # the depth of the target is given by batch[i]['depths'], which is a list of the same size as var_pos
+            dep_tensor[i, var_pos] = torch.tensor(sample['depths'], dtype=torch.long)
 
-            oper_tensor[i, para_pos] = torch.tensor(sample['opers'], dtype=torch.long)
+            oper_tensor[i, var_pos] = torch.tensor(sample['opers'], dtype=torch.long)
             
-            y_tensor[i, para_pos] = torch.tensor(sample['values'], dtype=torch.long)
+            y_tensor[i, var_pos] = torch.tensor(sample['values'], dtype=torch.long)
         
             
         return EasyDict({
