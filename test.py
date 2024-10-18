@@ -19,7 +19,7 @@ train_start(
         'seed': None,
         'max_dep': args.max_dep,
         'med_loss_ratio': args.med_loss_ratio, 
-        'data_file_name': 'dag_ADDonly.json'
+        'data_file_name': 'dag.json'
     }
 )
 
