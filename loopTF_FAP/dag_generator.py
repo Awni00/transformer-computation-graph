@@ -496,7 +496,7 @@ def generate_abs_dag(data_config: EasyDict):
         max_depth=data_config.max_depth,
         func_vocab=func_vocab,
         mod_val=data_config.mod_val,
-        shuffle_predecessors=False,
+        shuffle_predecessors=data_config.shuffle_node_name,
         verbose=data_config.verbose
     )
     return abs_dag
