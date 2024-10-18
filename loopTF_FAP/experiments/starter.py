@@ -34,6 +34,7 @@ def train_start(**kwargs):
             abstract_config=Config, 
             abstract_pipeline=Pipeline,
             abstract_datamodule=DataModule,
+            **kwargs,
         )
     
     training_manager.fit()

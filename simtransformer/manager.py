@@ -49,12 +49,16 @@ class TrainingManagerBase():
     """
     def __init__(self, 
                  dir_handler: DirectoryHandler,
-                 use_wandb: bool = False, 
                  abstract_config: ConfigBase = ConfigBase,
                  abstract_pipeline: PipelineBase = PipelineBase,
                  abstract_datamodule: DataModuleBase = DataModuleBase,
                  abstract_probepipeline: ProbePipelineBase = ProbePipelineBase,
+                 **kwargs,
                 ):
+        """
+        kwargs will override the configuration parameters.
+        By default, you can either supply kwargs like "train_config.batch_size" or simply "batch_size" if this key is already in the configuration. Otherwise, please specify the full path of the key in the configuration.
+        """
         self.dir_handler = dir_handler
         
         # set up abstract classes
@@ -66,6 +70,7 @@ class TrainingManagerBase():
         # set up configuration
         config_dir = self.dir_handler.load_config_dir
         self.config = self.abstract_config(config_dir)
+        self.config.override(kwargs) 
 
         # seed_everything
         if self.train_config.seed is not None:
@@ -93,7 +98,7 @@ class TrainingManagerBase():
         self.dir_handler.set_output_dir(self.training_name)
 
         # wandb initialization
-        self.wandb_logger = self.wandb_initialization(use_wandb)
+        self.wandb_logger = self.wandb_initialization(self.train_config.use_wandb)
         # self.train_config.wandb_id = self.wandb_logger.version() if use_wandb else None
 
         # save configuration as a yaml file
@@ -103,21 +108,21 @@ class TrainingManagerBase():
     @classmethod
     def restore_state(cls, 
                       path_to_dirhandler: str,
-                      use_wandb: bool = False,
                       keep_output_dir: bool = False, 
                       abstract_config: ConfigBase = ConfigBase,
                       abstract_pipeline: PipelineBase = PipelineBase,
                       abstract_datamodule: DataModuleBase = DataModuleBase,
                       abstract_probepipeline: ProbePipelineBase = ProbePipelineBase,
+                      **kwargs,
                       ):
         dir_handler = DirectoryHandler.load_from_file(path_to_dirhandler)
         return cls(dir_handler,
-                   use_wandb, 
                    keep_output_dir,
                    abstract_config,
                    abstract_pipeline,
                    abstract_datamodule,
                    abstract_probepipeline,
+                     **kwargs,
                     )
     
     @property
@@ -135,6 +140,8 @@ class TrainingManagerBase():
     @property
     def probe_config(self):
         return self.config.probe_config
+    
+    # for other config, please call self.config.<other_config>
     
     @final
     def setup_probe_pipeline(self):

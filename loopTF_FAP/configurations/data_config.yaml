@@ -26,7 +26,7 @@ dag_config:
   max_depth: 16                     # Maximum depth of the DAG
   func_vocab:
   - ADD
-  # - MUL
+  - MUL
   mod_val: 23                        # Base value for modular arithmetic in the DAG
   verbose: False
   data_dir: data

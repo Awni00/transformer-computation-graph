@@ -190,6 +190,26 @@ class ConfigBase(EasyDict):
         """
         pass
 
+    def override(self, kwargs: dict):
+        """
+        Override the configurations with the given kwargs.
+        """
+        # first check if the kwargs start with self.keys(), if so update the corresponding key
+        for key, var in kwargs.items():
+            if key.startswith(tuple(self.keys())):
+                self.update({key: var})
+            else:
+                # if not, check if the key is in the nested dict, if two nested dicts have the same key, all the keys will be updated while raise a warning message but do not stop the process
+                for k, v in self.items():
+                    count = 0
+                    if isinstance(v, EasyDict):
+                        if key in v.keys():
+                            v.update({key: var})
+                            count += 1
+                    if count > 1:
+                        print(f"Warning: {key} is in multiple configs. By default, all the keys will be updated.")
+        self.prepare()
+
 class PipelineBase(lightning.LightningModule):
     """
     PipelineBase is a base class for creating a training pipeline using PyTorch Lightning. 

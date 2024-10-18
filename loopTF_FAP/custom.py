@@ -18,12 +18,12 @@ class Config(ConfigBase):
     pass
 
 class TrainingManager(TrainingManagerBase):
-    def __init__(self, dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule):
-        super(TrainingManager, self).__init__(dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule)
+    def __init__(self, dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule, **kwargs):
+        super(TrainingManager, self).__init__(dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule, **kwargs)
         
 
     def get_training_name(self):
-        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}N{self.data_config.dag_config.num_nodes}T' + time.strftime("%m%d-%H%M%S") # default
+        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-O{self.train_config.max_oper}-NTP{}' + time.strftime("%m%d-%H%M") # default
         print(f"Current training run: {training_name}")
         return training_name
     
@@ -172,7 +172,7 @@ class Pipeline(PipelineBase):
             self.med_loss_counter[cur_dep] += len(med_loss_indices)
             loss_counter[cur_dep] += len(med_loss_indices)
 
-            selected_output = self.training_model.readout(selected_state)
+            selected_output = self.training_model.med_readout(selected_state)
             # compute loss
             loss_ls[-1] = self.loss_p_model(selected_output, selected_label)
 
@@ -200,8 +200,8 @@ class Pipeline(PipelineBase):
                 num_effective_dep += 1
                 # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
 
-                self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
-                self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+                self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
+                self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
         
         if num_effective_dep > 0:
             loss_p /= num_effective_dep
@@ -209,12 +209,12 @@ class Pipeline(PipelineBase):
         else:
             return None
 
-        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
-        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
+        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
         if self.loss_n_model is not None:
-            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=True)
+            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
 
-        return loss_p, loss_n, output
+            return loss_p, loss_n, output
 
         
  
