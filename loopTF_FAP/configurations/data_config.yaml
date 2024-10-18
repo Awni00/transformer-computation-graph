@@ -23,9 +23,10 @@ dag_config:
   min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
   max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
   num_leaf_nodes: 6              # Number of leaf nodes
-  max_depth: 16                     # Maximum depth of the DAG
+  max_depth: 24                     # Maximum depth of the DAG
   func_vocab:
   - ADD
+  - MUL
   mod_val: 23                        # Base value for modular arithmetic in the DAG
   verbose: False
   data_dir: data
