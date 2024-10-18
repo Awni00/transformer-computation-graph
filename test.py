@@ -6,6 +6,8 @@ def parse_args():
     parser.add_argument('--use_ntp_loss', type=bool, default=True, help='Use NTP loss')
     parser.add_argument('--max_dep', type=int, required=True, help='Maximum depth')
     parser.add_argument('--med_loss_ratio', type=float, nargs='+', required=True, help='List of float values for med_loss_ratio')
+    parser.add_argument('--last_run_name', type=str, required=False, help='Name of the last run')
+    parser.add_argument('--ckpt_file_name', type=str, required=False, help='Checkpoint file name')
     return parser.parse_args()
 
 args = parse_args()
