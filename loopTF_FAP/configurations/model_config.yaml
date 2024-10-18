@@ -23,4 +23,4 @@ use_bias: true
 use_layer_norm: true
 use_pos_layer_norm: true
 use_readout_proj: true
-input_size: 64
+input_size: 256
