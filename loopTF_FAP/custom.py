@@ -23,7 +23,7 @@ class TrainingManager(TrainingManagerBase):
         
 
     def get_training_name(self):
-        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-O{self.train_config.max_oper}-NTP{int(self.train_config.use_ntp_loss)}' + time.strftime("%m%d-%H%M") # default
+        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-O{self.train_config.max_oper}-NTP{int(self.train_config.use_ntp_loss)}-' + time.strftime("%m%d-%H%M") # default
         print(f"Current training run: {training_name}")
         return training_name
     
