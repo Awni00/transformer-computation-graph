@@ -26,5 +26,19 @@ cd /home/sc3226/project/transformer-computation-graph
 module load miniconda
 conda activate scgpt1
 
-# python Tk_comp_atomic.py --only_dst
-python test.py
+
+# Array of different configurations
+declare -a configs=(
+    "--use_ntp_loss False --max_dep 2 --add_med_loss_prob 0.1 1.0"
+    "--use_ntp_loss False --max_dep 4 --add_med_loss_prob 0.001 0.01 0.1 1.0"
+    "--use_ntp_loss False --max_dep 6 --add_med_loss_prob 0.00001 0.0001 0.001 0.01 0.1 1.0"
+    "--use_ntp_loss False --max_dep 2 --add_med_loss_prob 1.0 1.0"
+    "--use_ntp_loss False --max_dep 4 --add_med_loss_prob 1.0 1.0 1.0 1.0"
+    "--use_ntp_loss False --max_dep 6 --add_med_loss_prob 1.0 1.0 1.0 1.0 1.0 1.0"
+)
+
+# Loop through configurations and submit each as a separate job
+for config in "${configs[@]}"
+do
+    sbatch --wrap="python test.py $config"
+done
