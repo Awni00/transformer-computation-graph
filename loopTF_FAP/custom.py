@@ -167,18 +167,9 @@ class Pipeline(PipelineBase):
             if num_selected == 0:
                 continue
             
-            # # select a subset of range(num_selected) to add the medium loss
-            # med_loss_indices = torch.randperm(num_selected)[:int(med_loss_ratio*num_selected)]
-
-            # if len(med_loss_indices) == 0:
-            #     continue
-
-            # selected_state = selected_state[med_loss_indices]
-            # selected_label = selected_label[med_loss_indices]
-            
             # update loss counter
-            self.med_loss_counter[cur_dep] += len(num_selected)
-            loss_counter[cur_dep] += len(num_selected)
+            self.med_loss_counter[cur_dep] += num_selected
+            loss_counter[cur_dep] += num_selected
 
             selected_output = self.training_model.med_readout(selected_state)
             # compute loss

@@ -34,4 +34,4 @@ dag_config:
   vocab_file_name: dag_vocab.yaml
   fix_graph: False
   shuffle_node_name: True
-num_samples: 50000
+num_samples: 500
