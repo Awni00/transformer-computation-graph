@@ -11,6 +11,7 @@ parentdir = os.path.dirname(currentdir)
 os.sys.path.insert(0,parentdir)
 from simtransformer.module_base import ConfigBase
 from simtransformer.utils import EasyDict, clever_save, clever_load, shuffle_with_indices
+from tqdm import tqdm
 
 unk_token = '<unk>'
 pad_token = '<pad>'
@@ -536,7 +537,7 @@ def generate_simple_dataset(config_path: str):
     num_samples = data_config.num_samples
     dataset = []
     
-    for _ in range(num_samples):
+    for _ in tqdm(range(num_samples), desc="Generating dataset"):
         if dag_config.fix_graph == False:
             dag = generate_abs_dag(dag_config)
         sentence, original_indices, depths, values, opers = dag.generate_data(shuffle=False, to_string=False)
