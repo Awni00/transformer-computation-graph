@@ -7,11 +7,6 @@ import numpy as np
 import random
 
 def train_start(**kwargs):
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--only_dst', action='store_true', help='Whether to only use the destination entity.')
-    # parser.add_argument('--only_attn', action='store_true', help='Whether to only use the attention mechanism.')
-
-    # args = parser.parse_args()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
     grandparent_dir = os.path.dirname(parent_dir)
@@ -30,7 +25,6 @@ def train_start(**kwargs):
 
     training_manager = TrainingManager(
             dir_handler=dir_handler,
-            use_wandb=kwargs['use_wandb'],
             abstract_config=Config, 
             abstract_pipeline=Pipeline,
             abstract_datamodule=DataModule,

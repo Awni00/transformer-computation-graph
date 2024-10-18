@@ -25,3 +25,4 @@ add_med_loss_prob:
   - 1.0
   - 1.0
   - 1.0
+use_ntp_loss: True

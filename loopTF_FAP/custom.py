@@ -18,19 +18,19 @@ class Config(ConfigBase):
     pass
 
 class TrainingManager(TrainingManagerBase):
-    def __init__(self, dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule, **kwargs):
-        super(TrainingManager, self).__init__(dir_handler, use_wandb, abstract_config, abstract_pipeline, abstract_datamodule, **kwargs)
+    def __init__(self, dir_handler, abstract_config, abstract_pipeline, abstract_datamodule, **kwargs):
+        super(TrainingManager, self).__init__(dir_handler, abstract_config, abstract_pipeline, abstract_datamodule, **kwargs)
         
 
     def get_training_name(self):
-        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-O{self.train_config.max_oper}-NTP{}' + time.strftime("%m%d-%H%M") # default
+        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-O{self.train_config.max_oper}-NTP{int(self.train_config.use_ntp_loss)}' + time.strftime("%m%d-%H%M") # default
         print(f"Current training run: {training_name}")
         return training_name
     
     def config_pipeline(self):
         training_model = LoopGPTBlock(self.model_config, len(self.vocab), weight_tie=True)
         loss_p_model = nn.CrossEntropyLoss()
-        loss_n_model = nn.CrossEntropyLoss()
+        loss_n_model = nn.CrossEntropyLoss() if self.train_config.use_ntp_loss else None
         return  {
             "train_config": self.train_config,
             "training_model": training_model,
