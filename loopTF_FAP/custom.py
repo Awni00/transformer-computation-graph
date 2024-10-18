@@ -23,7 +23,7 @@ class TrainingManager(TrainingManagerBase):
         
 
     def get_training_name(self):
-        add_med_loss_prob_str = '[' + ','.join(f'{prob:.1e}'.replace('e-0', 'e-').replace('e+0', 'e+') for prob in self.train_config.add_med_loss_prob) + ']'
+        add_med_loss_prob_str = '[' + ','.join(f'{prob:.1e}'.replace('e-0', 'e-').replace('e+0', 'e+') for prob in self.train_config.med_loss_ratio) + ']'
         training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-medprob-{add_med_loss_prob_str}' + time.strftime("%m%d-%H%M") # default
         print(f"Current training run: {training_name}")
         return training_name
@@ -137,11 +137,13 @@ class Pipeline(PipelineBase):
         loss_ls = []
         mrr_ls = []
         loss_counter = []
+        med_loss_ratio = []
         
         for cur_dep in range(self.max_dep):
             loss_ls.append(None)
             mrr_ls.append(None)
             loss_counter.append(0)
+            med_loss_ratio.append(None)
             
             if cur_dep == 0:
                 hidden_state = self.training_model.encoder(token_embedding)
@@ -159,21 +161,24 @@ class Pipeline(PipelineBase):
             if selected_state.numel() == 0:
                 continue
             
-            add_med_loss_prob = self.train_config.add_med_loss_prob[cur_dep] if len(self.train_config.add_med_loss_prob) > cur_dep else 1.0
+            med_loss_ratio[-1] = self.train_config.med_loss_ratio[cur_dep] if len(self.train_config.med_loss_ratio) > cur_dep else 1.0
             
-            num_selected = selected_state.size(0)
-            # select a subset of range(num_selected) to add the medium loss
-            med_loss_indices = torch.randperm(num_selected)[:int(add_med_loss_prob*num_selected)]
-
-            if len(med_loss_indices) == 0:
+            num_selected = len(selected_state)
+            if num_selected == 0:
                 continue
+            
+            # # select a subset of range(num_selected) to add the medium loss
+            # med_loss_indices = torch.randperm(num_selected)[:int(med_loss_ratio*num_selected)]
 
-            selected_state = selected_state[med_loss_indices]
-            selected_label = selected_label[med_loss_indices]
+            # if len(med_loss_indices) == 0:
+            #     continue
+
+            # selected_state = selected_state[med_loss_indices]
+            # selected_label = selected_label[med_loss_indices]
             
             # update loss counter
-            self.med_loss_counter[cur_dep] += len(med_loss_indices)
-            loss_counter[cur_dep] += len(med_loss_indices)
+            self.med_loss_counter[cur_dep] += len(num_selected)
+            loss_counter[cur_dep] += len(num_selected)
 
             selected_output = self.training_model.med_readout(selected_state)
             # compute loss
@@ -196,18 +201,20 @@ class Pipeline(PipelineBase):
         loss_p = 0.0
         mrr = 0.0
         num_effective_dep = 0
+        add_med_loss_prob_total = 0.0
         for i, loss_i in enumerate(loss_ls):
             if loss_i is not None:
-                loss_p += loss_i
+                loss_p += loss_i * med_loss_ratio[i]
                 mrr += mrr_ls[i] 
                 num_effective_dep += 1
+                add_med_loss_prob_total += med_loss_ratio[i]
                 # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
 
                 self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
                 self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         
         if num_effective_dep > 0:
-            loss_p /= num_effective_dep
+            loss_p /= add_med_loss_prob_total
             mrr /= num_effective_dep
         else:
             return None, None, None
