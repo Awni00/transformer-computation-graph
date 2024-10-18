@@ -18,7 +18,7 @@ seed: 41
 num_workers: 16
 
 max_oper: 20
-max_dep: 5
+max_dep: 6
 add_med_loss_prob:
   - 1.0
   - 1.0

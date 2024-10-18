@@ -537,6 +537,8 @@ def generate_simple_dataset(config_path: str):
     dataset = []
     
     for _ in range(num_samples):
+        if dag_config.fix_graph == False:
+            dag = generate_abs_dag(dag_config)
         sentence, original_indices, depths, values, opers = dag.generate_data(shuffle=False, to_string=False)
         data_piece = {
             'eqs': sentence,

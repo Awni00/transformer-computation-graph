@@ -32,4 +32,5 @@ dag_config:
   data_dir: data
   data_file_name: dag.json
   vocab_file_name: dag_vocab.yaml
-num_samples: 50000
+  fix_graph: False
+num_samples: 5000
