@@ -16,6 +16,7 @@ train_start(
         'use_ntp_loss': args.use_ntp_loss,
         'seed': None,
         'max_dep': args.max_dep,
-        'add_med_loss_prob': args.add_med_loss_prob
+        'add_med_loss_prob': args.add_med_loss_prob, 
+        'data_file_name': 'dag_ADDonly.json'
     }
 )

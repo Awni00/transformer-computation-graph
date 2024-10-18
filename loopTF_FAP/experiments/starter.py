@@ -14,7 +14,7 @@ def train_start(**kwargs):
 
     dir_handler = DirectoryHandler(
         load_data_abs_dir=os.path.join(task_dir, 'data'),
-        data_file_name='dag.json',
+        data_file_name=kwargs['data_file_name'],
         vocab_file_name='dag_vocab.yaml',
         load_config_abs_dir=os.path.join(task_dir, 'configurations'),
         load_ckpt_abs_path=None,

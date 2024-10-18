@@ -26,12 +26,12 @@ dag_config:
   max_depth: 24                     # Maximum depth of the DAG
   func_vocab:
   - ADD
-  - MUL
+  # - MUL
   mod_val: 23                        # Base value for modular arithmetic in the DAG
   verbose: False
   data_dir: data
-  data_file_name: dag.json
+  data_file_name: dag_ADDonly.json
   vocab_file_name: dag_vocab.yaml
   fix_graph: False
   shuffle_node_name: True
-num_samples: 500
+num_samples: 50000
