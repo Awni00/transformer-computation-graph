@@ -374,8 +374,9 @@ class PipelineBase(lightning.LightningModule):
         for parameter in self.training_model.parameters():
             param_norm += torch.linalg.norm(parameter)
         self.log("param_norm", param_norm, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-             
-        step_dict = {'loss': loss_p + loss_n, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
+
+        loss_n_scale = self.train_config.loss_n_scale
+        step_dict = {'loss': loss_p + loss_n * loss_n_scale, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.training_step_end(step_dict)
         
         return step_dict
@@ -396,7 +397,8 @@ class PipelineBase(lightning.LightningModule):
         if loss_p is None or loss_n is None or output is None:
             return 0.0
         
-        step_dict = {'loss': loss_p + loss_n, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
+        loss_n_scale = self.train_config.loss_n_scale
+        step_dict = {'loss': loss_p + loss_n * loss_n_scale, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.validation_step_end(step_dict)
         return step_dict
     
@@ -416,7 +418,8 @@ class PipelineBase(lightning.LightningModule):
         if loss_p is None or loss_n is None or output is None:
             return 0.0
         
-        step_dict = {'loss': loss_p + loss_n, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
+        loss_n_scale = self.train_config.loss_n_scale
+        step_dict = {'loss': loss_p + loss_n * loss_n_scale, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.test_step_end(step_dict)
         return step_dict
 

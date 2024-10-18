@@ -26,4 +26,5 @@ med_loss_ratio:
   - 1.0
   - 0.0
 use_ntp_loss: True
+loss_n_scale: 3.0
 add_input_per_loop: false
