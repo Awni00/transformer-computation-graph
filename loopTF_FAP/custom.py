@@ -146,7 +146,9 @@ class Pipeline(PipelineBase):
             if cur_dep == 0:
                 hidden_state = self.training_model.encoder(token_embedding)
             else: 
-                hidden_state = self.training_model.encoder(hidden_state + token_embedding) # shape (batch_size, seq_len, hidden_size)
+                hidden_input = hidden_state + token_embedding if self.train_config.add_input_per_loop else hidden_state
+                hidden_state = self.training_model.encoder(hidden_input)
+                # shape (batch_size, seq_len, hidden_size)
                 # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
             
             # find all the indices in dep that are equal to cur_dep and dep < max_dep
