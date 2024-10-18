@@ -365,6 +365,10 @@ class PipelineBase(lightning.LightningModule):
         
         loss_p, loss_n, output = self._Step(batch, batch_idx, "train")
 
+        # if any of the three is None, return loss 0.0
+        if loss_p is None or loss_n is None or output is None:
+            return 0.0
+
         ## --------- log parameter norm --------- ##
         param_norm = 0.0
         for parameter in self.training_model.parameters():
@@ -388,6 +392,10 @@ class PipelineBase(lightning.LightningModule):
         # forward pass
         loss_p, loss_n, output = self._Step(batch, batch_idx, "val")
         
+        # if any of the three is None, return loss 0.0
+        if loss_p is None or loss_n is None or output is None:
+            return 0.0
+        
         step_dict = {'loss': loss_p + loss_n, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.validation_step_end(step_dict)
         return step_dict
@@ -403,6 +411,10 @@ class PipelineBase(lightning.LightningModule):
         """
         # forward pass
         loss_p, loss_n, output = self._Step(batch, batch_idx, "test")
+
+        # if any of the three is None, return loss 0.0
+        if loss_p is None or loss_n is None or output is None:
+            return 0.0
         
         step_dict = {'loss': loss_p + loss_n, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.test_step_end(step_dict)
