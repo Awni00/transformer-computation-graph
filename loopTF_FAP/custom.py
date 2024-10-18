@@ -201,8 +201,8 @@ class Pipeline(PipelineBase):
                 num_effective_dep += 1
                 # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
 
-                self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
-                self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
+                self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+                self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         
         if num_effective_dep > 0:
             loss_p /= num_effective_dep
@@ -210,10 +210,10 @@ class Pipeline(PipelineBase):
         else:
             return None, None, None
 
-        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
-        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
+        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         if self.loss_n_model is not None:
-            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
+            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
         return loss_p, loss_n, output
 
