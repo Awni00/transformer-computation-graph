@@ -19,7 +19,7 @@ ins_dag_config:
   mod_val: 23                        # Base value for modular arithmetic in the DAG
   verbose: True                      # Whether to print detailed information during DAG generation
 dag_config:
-  num_nodes: 32                  # Number of abstract nodes (e.g., h_1, h_2, ...)
+  num_nodes: 64                  # Number of abstract nodes (e.g., h_1, h_2, ...)
   min_fan_in_deg: 1                  # Minimum number of predecessor nodes for each node
   max_fan_in_deg: 3                  # Maximum number of predecessor nodes for each node
   num_leaf_nodes: 6              # Number of leaf nodes
@@ -33,4 +33,4 @@ dag_config:
   vocab_file_name: dag_vocab.yaml
   fix_graph: False
   shuffle_node_name: True
-num_samples: 5000
+num_samples: 50000

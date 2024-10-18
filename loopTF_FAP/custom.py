@@ -214,7 +214,7 @@ class Pipeline(PipelineBase):
         if self.loss_n_model is not None:
             self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
 
-            return loss_p, loss_n, output
+        return loss_p, loss_n, output
 
         
  
