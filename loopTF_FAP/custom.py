@@ -207,7 +207,7 @@ class Pipeline(PipelineBase):
             loss_p /= num_effective_dep
             mrr /= num_effective_dep
         else:
-            return None
+            return None, None, None
 
         self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
         self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch), on_step=True, on_epoch=False)
