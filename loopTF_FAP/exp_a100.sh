@@ -27,5 +27,5 @@ module load miniconda
 conda activate scgpt1
 
 
-python test.py --use_ntp_loss False --max_dep 6 --add_med_loss_prob 1.0 1.0 1.0 1.0 1.0 1.0
+python test.py --use_ntp_loss True --max_dep 6 --add_med_loss_prob 0.0 1.0 0.0 1.0 0.0 1.0
 
