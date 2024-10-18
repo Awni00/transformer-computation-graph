@@ -171,3 +171,4 @@ cython_debug/
 #.idea/
 
 run/
+slurm_output/
