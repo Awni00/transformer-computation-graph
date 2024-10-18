@@ -6,8 +6,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --time=24:00:00 
-#SBATCH --output=loopTF_FAP/slurm_output/%j.out
-#SBATCH --error=loopTF_FAP/slurm_output/%j.err
+#SBATCH --output=slurm_output/%j.out
+#SBATCH --error=slurm_output/%j.err
 #SBATCH --requeue
 
 echo '-------------------------------'
@@ -28,4 +28,4 @@ module load miniconda
 conda activate scgpt1
 
 
-python test.py
+python test.py --use_ntp_loss False --max_dep 6 --med_loss_ratio 0.1 1.0 0.1 1.0 0.1 1.0

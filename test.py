@@ -8,27 +8,27 @@ def parse_args():
     parser.add_argument('--med_loss_ratio', type=float, nargs='+', required=True, help='List of float values for med_loss_ratio')
     return parser.parse_args()
 
-# args = parse_args()
+args = parse_args()
 
-# train_start(
-#     **{
-#         'use_wandb': True,
-#         'use_ntp_loss': args.use_ntp_loss,
-#         'seed': None,
-#         'max_dep': args.max_dep,
-#         'med_loss_ratio': args.med_loss_ratio, 
-#         'data_file_name': 'dag_ADDonly.json'
-#     }
-# )
-
-# debug purpose
 train_start(
     **{
-        'use_wandb': False,
-        'use_ntp_loss': False,
-        'seed': 42,
-        'max_dep': 6,
-        'med_loss_ratio': [0.0, 1.0, 0.0, 1.0, 0.0, 1.0], 
-        'data_file_name': 'dag_Addonly.json'
+        'use_wandb': True,
+        'use_ntp_loss': args.use_ntp_loss,
+        'seed': None,
+        'max_dep': args.max_dep,
+        'med_loss_ratio': args.med_loss_ratio, 
+        'data_file_name': 'dag_ADDonly.json'
     }
 )
+
+# debug purpose
+# train_start(
+#     **{
+#         'use_wandb': False,
+#         'use_ntp_loss': False,
+#         'seed': 42,
+#         'max_dep': 6,
+#         'med_loss_ratio': [0.0, 1.0, 0.0, 1.0, 0.0, 1.0], 
+#         'data_file_name': 'dag_Addonly.json'
+#     }
+# )
