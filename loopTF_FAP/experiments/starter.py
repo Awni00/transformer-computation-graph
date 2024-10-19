@@ -73,3 +73,5 @@ def train_continue(data_file_name, vocab_file_name, last_run_name, ckpt_file_nam
             abstract_datamodule=DataModule,
             **kwargs,
         )
+
+    training_manager.fit()
