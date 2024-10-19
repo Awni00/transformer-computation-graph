@@ -17,7 +17,7 @@ args = parse_args()
 
 train_start(
     data_file_name='dag_ADDonly.json',
-    vocab_file_name='vocab.yaml',
+    vocab_file_name='dag_vocab.yaml',
     **{
         'use_wandb': True,
         'use_loss_n': args.use_loss_n,

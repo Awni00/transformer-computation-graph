@@ -189,7 +189,7 @@ class Pipeline(PipelineBase):
             selected_output = self.training_model.med_target_readout(selected_state)
         elif loss_type == 'parent':
             selected_output = self.training_model.med_parent_readout(selected_state)
-        elif loss_type == 'NTP_var' or loss_type == 'NTP_oper':
+        elif loss_type == 'NTPvar' or loss_type == 'NTPoper':
             selected_output = self.training_model.readout(selected_state)
         
         # compute mrr 
@@ -259,18 +259,16 @@ class Pipeline(PipelineBase):
             # self.med_loss_counter[cur_dep] += num_target if med_target_loss is not None else 0
 
         # final output
-        output = self.training_model.readout(hidden_state)
         # also do next token prediction loss 
         var_msk_to_predict = msk_target | msk_pa
         var_msk_to_predict = var_msk_to_predict[:, 1:]  # exclude the first token to make it match the y_n
         # prepare the output and label for next token prediction loss
-        output_n = output[:, :-1, :] if self.train_config.use_loss_n else output[:, :-1, :].detach()
+        hidden_state_n = hidden_state[:, :-1, :] if self.train_config.use_loss_n else hidden_state[:, :-1, :].detach()
         y_n = x[:, 1:]
         
         cur_dep = self.max_dep - 1
-        loss_n_var, _, _, num_var = self.intermediate_loss(output_n, y_n, var_msk_to_predict, 'NTPvar', step_type, batch_size, cur_dep)
-        
-        loss_n_oper, _, _, num_oper = self.intermediate_loss(output_n, y_n, ~var_msk_to_predict, 'NTPoper', step_type, batch_size, cur_dep)
+        loss_n_var, _, _, num_var = self.intermediate_loss(hidden_state_n, y_n, var_msk_to_predict, 'NTPvar', step_type, batch_size, cur_dep)
+        loss_n_oper, _, _, num_oper = self.intermediate_loss(hidden_state_n, y_n, ~var_msk_to_predict, 'NTPoper', step_type, batch_size, cur_dep)
         
         # note that the number of operations is roughly the same as the number of variables in the sentence, so we don't do any scaling here
         loss_n = loss_n_var * num_var + loss_n_oper * num_oper / (num_var + num_oper)
