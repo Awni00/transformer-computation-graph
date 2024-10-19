@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import random
 import re
-from ...simtransformer.utils import clever_load
+from simtransformer.utils import clever_load
 
 def train_start(data_file_name, vocab_file_name, **kwargs):
     current_dir = os.path.dirname(os.path.abspath(__file__))
