@@ -7,6 +7,7 @@ def parse_args():
     parser.add_argument('--use_parent_loss', type=bool, default=True, help='Use parent loss')
     parser.add_argument('--max_dep', type=int, default=6, help='Maximum depth')
     parser.add_argument('--med_loss_ratio', type=float, nargs='+', default=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0], required=False, help='List of float values for med_loss_ratio')
+    parser.add_argument('--seed', type=int, default=41, help='Random seed')
     parser.add_argument('--last_run_name', type=str, required=False, help='Name of the last run')
     parser.add_argument('--ckpt_file_name', type=str, required=False, help='Checkpoint file name')
     parser.add_argument('--num_workers', type=int, default=1, help='Number of workers for data loading')
@@ -21,7 +22,7 @@ train_start(
         'use_wandb': True,
         'use_loss_n': args.use_loss_n,
         'use_parent_loss': args.use_parent_loss,
-        'seed': 21,
+        'seed': args.seed,
         'max_dep': args.max_dep,
         'med_loss_ratio': args.med_loss_ratio,
         'num_workers': args.num_workers
