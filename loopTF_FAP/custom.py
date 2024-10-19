@@ -279,37 +279,25 @@ class Pipeline(PipelineBase):
         mrr_parent = 0.0
         acc = 0.0
         acc_parent = 0.0
-        num_effective_dep = 0
-        add_med_loss_prob_total = 0.0
-        for i, loss_i in enumerate(loss_ls):
-            if loss_i is not None:
-                
-                loss_p += loss_i * med_loss_ratio[i]
-                mrr += mrr_ls[i]
-                acc += acc_ls[i]
-                
-                loss_parent += loss_parent_ls[i] * med_loss_ratio[i]
-                mrr_parent += mrr_parent_ls[i]
-                acc_parent += acc_parent_ls[i]
-                
-                num_effective_dep += 1
-                add_med_loss_prob_total += med_loss_ratio[i]
-                # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
-
         
-        if num_effective_dep > 0:
-            loss_p /= add_med_loss_prob_total
-            mrr /= num_effective_dep
-            acc /= num_effective_dep
-            loss_parent /= add_med_loss_prob_total
-            mrr_parent /= num_effective_dep
-            acc_parent /= num_effective_dep
-        else:
-            return None, None, None
+        add_med_loss_prob_total = 0.0
+        
+        # calculate loss_p as the inner product of loss and med_loss_ratio by ignoring None
+        loss_target = sum([loss_i * med_loss_ratio[i] for i, loss_i in enumerate(loss_ls) if loss_i is not None]) / sum([med_loss_ratio[i] for i, loss_i in enumerate(loss_ls) if loss_i is not None])
+        
+        mrr_target = sum([mrr_ls[i] for i, mrr_i in enumerate(mrr_ls) if mrr_i is not None]) / sum([1 for i, mrr_i in enumerate(mrr_ls) if mrr_i is not None])
+        
+        acc_target = sum([acc_ls[i] for i, acc_i in enumerate(acc_ls) if acc_i is not None]) / sum([1 for i, acc_i in enumerate(acc_ls) if acc_i is not None])
+        
+        loss_parent = sum([loss_parent_ls[i] * med_loss_ratio[i] for i, loss_parent_i in enumerate(loss_parent_ls) if loss_parent_i is not None]) / sum([med_loss_ratio[i] for i, loss_parent_i in enumerate(loss_parent_ls) if loss_parent_i is not None])
+        
+        mrr_parent = sum([mrr_parent_ls[i] for i, mrr_parent_i in enumerate(mrr_parent_ls) if mrr_parent_i is not None]) / sum([1 for i, mrr_parent_i in enumerate(mrr_parent_ls) if mrr_parent_i is not None])
+        
+        acc_parent = sum([acc_parent_ls[i] for i, acc_parent_i in enumerate(acc_parent_ls) if acc_parent_i is not None]) / sum([1 for i, acc_parent_i in enumerate(acc_parent_ls) if acc_parent_i is not None])
 
-        self.log(f"{step_type}_target_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        self.log(f"{step_type}_target_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
-        self.log(f"{step_type}_target_acc", acc, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
+        self.log(f"{step_type}_target_loss", loss_target, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        self.log(f"{step_type}_target_mrr", mrr_target, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
+        self.log(f"{step_type}_target_acc", acc_target, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
         
         self.log(f"{step_type}_parent_loss", loss_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         self.log(f"{step_type}_parent_mrr", mrr_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
@@ -317,8 +305,8 @@ class Pipeline(PipelineBase):
             
         self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
-        loss = loss_p + loss_parent * self.train_config.loss_parent_scale
-        return loss, loss_n, output
+        loss_p = (loss_target + loss_parent * self.train_config.loss_parent_scale) / (1.0 + self.train_config.loss_parent_scale)
+        return loss_p, loss_n, 0.0
 
         
  
