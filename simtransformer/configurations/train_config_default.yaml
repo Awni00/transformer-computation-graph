@@ -10,10 +10,11 @@ StepLR_scheduler_config:
 learning_rate: 0.001
 max_epochs: 100
 optimizer: AdamW
-use_wandb: True
+use_wandb: true
 wandb_config:
   wandb_project: composition_v1
   wandb_entity: scgpt-siyu
 weight_decay: 0.01
 seed: 42
 num_workers: 4
+use_loss_n: true

@@ -11,6 +11,7 @@ from simtransformer.utils import MRR_fn, EasyDict
 from simtransformer.model_base import LinearWithChannel
 from typing import Optional
 from torch.utils.data import DataLoader
+import re
 
 probe_pos_len = 4
 
@@ -24,14 +25,31 @@ class TrainingManager(TrainingManagerBase):
 
     def get_training_name(self):
         add_med_loss_prob_str = '[' + ','.join(f'{prob:.1e}'.replace('e-0', 'e-').replace('e+0', 'e+') for prob in self.train_config.med_loss_ratio) + ']'
-        training_name = f'L{self.model_config.num_layers}H{self.model_config.num_heads}-N{self.data_config.dag_config.num_nodes}-D{self.train_config.max_dep}-medprob-{add_med_loss_prob_str}' + time.strftime("%m%d-%H%M") # default
+        if "dag_ADDonly" in self.dir_handler.data_file_name:
+            Operation_type = '[ADD]'
+        else:
+            Operation_type = '[ADD,MUL]'
+        training_name = (
+            'L' + str(self.model_config.num_layers) +
+            'H' + str(self.model_config.num_heads) +
+            'D' + str(self.model_config.hidden_size) + 
+            '-' +
+            'N' + str(self.data_config.dag_config.num_nodes) +
+            'DP' + str(self.train_config.max_dep) + 
+            Operation_type + 
+            '-' +
+            'MR' + add_med_loss_prob_str +
+            'NTP' + f'{self.train_config.loss_n_scale:.1f}' + 
+            '-' +
+            time.strftime("%m%d-%H%M")
+        )  # default
         print(f"Current training run: {training_name}")
         return training_name
     
     def config_pipeline(self):
         training_model = LoopGPTBlock(self.model_config, len(self.vocab), weight_tie=True)
         loss_p_model = nn.CrossEntropyLoss()
-        loss_n_model = nn.CrossEntropyLoss() if self.train_config.use_ntp_loss else None
+        loss_n_model = nn.CrossEntropyLoss() if self.train_config.use_loss_n else None
         return  {
             "train_config": self.train_config,
             "training_model": training_model,
@@ -72,8 +90,9 @@ class DataModule(DataModuleBase):
         # initialize the depth and operation tensors with a large number
         dep_tensor = torch.full((len(batch), max_seq_len), torch.iinfo(torch.long).max, dtype=torch.long)
         oper_tensor = torch.full((len(batch), max_seq_len), torch.iinfo(torch.long).max, dtype=torch.long)
-        
-        msk_tensor = None
+        msk_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.bool)
+        msk_pa_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.bool)
+
         probe_msk_tensor = None
         probe_label = None
         
@@ -86,12 +105,37 @@ class DataModule(DataModuleBase):
             
             # find all positions of '=' and add 1 to get the positions of the targets
             var_pos = [idx + 1 for idx, word in enumerate(sentence_idx) if word == self.vocab['=']]
-            # the depth of the target is given by batch[i]['depths'], which is a list of the same size as var_pos
-            dep_tensor[i, var_pos] = torch.tensor(sample['depths'], dtype=torch.long)
 
-            oper_tensor[i, var_pos] = torch.tensor(sample['opers'], dtype=torch.long)
+            # Build a lookup table for variable names and their values
+            var_lookup = {}
+            for pos, value, depth, oper in zip(var_pos, sample['values'], sample['depths'], sample['opers']):
+                var_name = sentence[pos]  # Get the variable name from the sentence
+                var_lookup[var_name] = {
+                    "value": value,
+                    "depth": depth,
+                    "oper": oper
+                }
+
+            # Update tensors based on the lookup table
+            for idx, word in enumerate(sentence):
+                if re.match(r'^[a-zA-Z]_\d+$', word) and word in var_lookup:
+                    y_tensor[i, idx] = var_lookup[word]["value"]
+                    dep_tensor[i, idx] = var_lookup[word]["depth"]
+                    oper_tensor[i, idx] = var_lookup[word]["oper"]
+                    msk_pa_tensor[i, idx] = True
+
+            # the depth of the target is given by batch[i]['depths'], which is a list of the same size as var_pos
+            # dep_tensor[i, var_pos] = torch.tensor(sample['depths'], dtype=torch.long)
+
+            # oper_tensor[i, var_pos] = torch.tensor(sample['opers'], dtype=torch.long)
             
-            y_tensor[i, var_pos] = torch.tensor(sample['values'], dtype=torch.long)
+            # y_tensor[i, var_pos] = torch.tensor(sample['values'], dtype=torch.long)
+
+            msk_tensor[i, var_pos] = True 
+        
+        # exclude msk_tensor == 1's position from msk_pa_tensor
+        msk_pa_tensor = msk_pa_tensor & ~msk_tensor
+            
         
             
         return EasyDict({
@@ -102,7 +146,8 @@ class DataModule(DataModuleBase):
             "probe_mask": probe_msk_tensor,
             "batch_info": {
                 "dep": dep_tensor, 
-                "oper": oper_tensor
+                "oper": oper_tensor, 
+                "msk_pa": msk_pa_tensor
             }
         })
 
@@ -118,7 +163,28 @@ class Pipeline(PipelineBase):
 
         self.med_loss_counter = [0 for _ in range(self.max_dep)]
 
+    def compute_intermediate_target_loss(self, cur_dep, hidden_state, y, mask, dep):
+        """
+        Select the intermediate target for each depth. 
+        """
+        # find all the indices in dep that are equal to cur_dep and dep < max_dep, and mask == True
+        indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep, dep < self.max_dep), mask == True))
+        
+        selected_state = self._mask_select(hidden_state, indices)
+        selected_label = self._mask_select(y, indices)
+        if selected_state.numel() == 0:
+            return None, None, None
 
+        selected_output = self.training_model.med_readout(selected_state)
+
+        # compute mrr 
+        mrr = MRR_fn(selected_output, selected_label)
+        # compute loss
+        
+        return self.loss_p_model(selected_output, selected_label), mrr, len(selected_state)
+        
+        
+        
 
     def _Step(self, batch, batch_idx, step_type: Optional[str] = None):
         ## --------- forward pass --------- ##
@@ -126,7 +192,7 @@ class Pipeline(PipelineBase):
         # print("batch", batch)
         train_batch, _, batch_info = self._unpack_batch(batch)
         x, y, mask = train_batch
-        dep, oper = batch_info['dep'], batch_info['oper']
+        dep, oper, msk_pa = batch_info['dep'], batch_info['oper'], batch_info['msk_pa']
         
         # x (batch_size, seq_len, Optional)
         # y (batch_size, seq_len, Optional)
@@ -136,14 +202,9 @@ class Pipeline(PipelineBase):
         hidden_state = token_embedding
         loss_ls = []
         mrr_ls = []
-        loss_counter = []
         med_loss_ratio = []
         
         for cur_dep in range(self.max_dep):
-            loss_ls.append(None)
-            mrr_ls.append(None)
-            loss_counter.append(0)
-            med_loss_ratio.append(None)
             
             if cur_dep == 0:
                 hidden_state = self.training_model.encoder(token_embedding)
@@ -153,30 +214,17 @@ class Pipeline(PipelineBase):
                 # shape (batch_size, seq_len, hidden_size)
                 # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
             
-            # find all the indices in dep that are equal to cur_dep and dep < max_dep
-            indices = torch.where(torch.logical_and(dep == cur_dep, dep < self.max_dep))
             
-            selected_state = self._mask_select(hidden_state, indices)
-            selected_label = self._mask_select(y, indices)
-            if selected_state.numel() == 0:
-                continue
-            
-            med_loss_ratio[-1] = self.train_config.med_loss_ratio[cur_dep] if len(self.train_config.med_loss_ratio) > cur_dep else 1.0
-            
-            num_selected = len(selected_state)
-            if num_selected == 0:
-                continue
+            med_target_loss, med_target_mrr, num_selected = self.compute_intermediate_target_loss(cur_dep, hidden_state, y, mask, dep)
+
+            loss_ls.append(med_target_loss)
+            mrr_ls.append(med_target_mrr)
+            med_loss_ratio.append(self.train_config.med_loss_ratio[cur_dep] if len(self.train_config.med_loss_ratio) > cur_dep else 1.0)
             
             # update loss counter
-            self.med_loss_counter[cur_dep] += num_selected
-            loss_counter[cur_dep] += num_selected
+            self.med_loss_counter[cur_dep] += num_selected if med_target_loss is not None else 0
 
-            selected_output = self.training_model.med_readout(selected_state)
-            # compute loss
-            loss_ls[-1] = self.loss_p_model(selected_output, selected_label)
-
-            # compute mrr 
-            mrr_ls[-1] = MRR_fn(selected_output, selected_label)
+            
 
         # final output
         output = self.training_model.readout(hidden_state)
