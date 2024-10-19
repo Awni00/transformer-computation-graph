@@ -237,7 +237,7 @@ class Pipeline(PipelineBase):
         # also do next token prediction loss 
         if self.loss_n_model is not None:
             output_n = output[:, :-1, :]
-            y_n = y[:, 1:]
+            y_n = x[:, 1:]
             loss_n = self.loss_n_model(output_n.reshape(-1, output_n.size(-1)), y_n.reshape(-1))
         else: 
             loss_n = 0.0
