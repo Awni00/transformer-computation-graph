@@ -55,7 +55,7 @@ class TrainingManager(TrainingManagerBase):
     def config_pipeline(self):
         training_model = LoopGPTBlock(self.model_config, len(self.vocab), weight_tie=True)
         loss_p_model = nn.CrossEntropyLoss()
-        loss_n_model = nn.CrossEntropyLoss() if self.train_config.use_loss_n else None
+        loss_n_model = nn.CrossEntropyLoss()
         return  {
             "train_config": self.train_config,
             "training_model": training_model,
@@ -160,23 +160,49 @@ class Pipeline(PipelineBase):
 
         self.med_loss_counter = [0 for _ in range(self.max_dep)]
 
-    def compute_intermediate_target_loss(self, hidden_state, y, indices):
+    def intermediate_loss(self, hidden_state, y, indices, loss_type: str, step_type: str, batch_size: int, cur_dep: int):
         """
         Select the intermediate target for each depth. 
+        
+        Args:
+        - hidden_state: tensor of shape (batch_size, seq_len, hidden_size)
+        - y: tensor of shape (batch_size, seq_len)
+        - indices: tensor of shape (batch_size, seq_len)
+        - loss_type: str, 'target' or 'parent'
+        - step_type: str, 'train' or 'val' or 'test'
+        - batch_size: int
+        - cur_dep: int, current depth
+        
+        Returns:
+        - loss: tensor of shape (1, )
+        - mrr: tensor of shape (1, )
+        - acc: tensor of shape (1, )
+        - num_target: int
         """
-        # find all the indices in dep that are equal to cur_dep and oper <= max_oper, and mask == True
+        # find all the indices in dep that are equal to cur_dep and oper <= max_oper, and msk_target == True
         selected_state = self._mask_select(hidden_state, indices)
         selected_label = self._mask_select(y, indices)
         if selected_state.numel() == 0:
-            return None, None, None
+            return None, None, None, None
 
-        selected_output = self.training_model.med_target_readout(selected_state)
+        if loss_type == 'target':
+            selected_output = self.training_model.med_target_readout(selected_state)
+        elif loss_type == 'parent':
+            selected_output = self.training_model.med_parent_readout(selected_state)
+        elif loss_type == 'NTP_var' or loss_type == 'NTP_oper':
+            selected_output = self.training_model.readout(selected_state)
+        
         # compute mrr 
         mrr = MRR_fn(selected_output, selected_label)
         # compute loss
         loss = self.loss_p_model(selected_output, selected_label)
         # compute accuracy
         acc = token_accuracy(selected_output, selected_label)
+        
+        self.log(f"{step_type}_{loss_type}_loss_dep_{cur_dep}", loss, prog_bar=True, logger=True, batch_size=batch_size)
+        self.log(f"{step_type}_{loss_type}_mrr_dep_{cur_dep}", mrr, prog_bar=True, logger=True, batch_size=batch_size) if self.train_config.log_mrr else None
+        self.log(f"{step_type}_{loss_type}_acc_dep_{cur_dep}", acc, prog_bar=True, logger=True, batch_size=batch_size) if self.train_config.log_acc else None
+        
         return loss, mrr, acc, len(selected_state)
 
     def _Step(self, batch, batch_idx, step_type: Optional[str] = None):
@@ -184,15 +210,14 @@ class Pipeline(PipelineBase):
         
         # print("batch", batch)
         train_batch, _, batch_info = self._unpack_batch(batch)
-        x, y, mask = train_batch
+        x, y, msk_target = train_batch
         dep, oper, msk_pa = batch_info['dep'], batch_info['oper'], batch_info['msk_pa']
+        batch_size = self.len_batch(batch)
         
         # x (batch_size, seq_len, Optional)
         # y (batch_size, seq_len, Optional)
-        # mask (batch_size, seq_len)
-
-        token_embedding = self.training_model.readin(x)
-        hidden_state = token_embedding
+        # msk_target (batch_size, seq_len)
+        
         loss_ls = []
         mrr_ls = []
         acc_ls = []
@@ -201,6 +226,7 @@ class Pipeline(PipelineBase):
         acc_parent_ls = []
         med_loss_ratio = []
         
+        token_embedding = self.training_model.readin(x)
         for cur_dep in range(self.max_dep):
             
             if cur_dep == 0:
@@ -211,20 +237,21 @@ class Pipeline(PipelineBase):
                 # shape (batch_size, seq_len, hidden_size)
                 # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
             
+            
             # compute intermediate target loss
-            indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep, oper <= self.max_oper), mask == True))
-            med_target_loss, med_target_mrr, med_target_acc, num_target = self.compute_intermediate_target_loss(hidden_state, y, indices)
+            indices = torch.logical_and(torch.logical_and(dep == cur_dep, msk_target == True), oper <= self.max_oper)
+            med_target_loss, med_target_mrr, med_target_acc, num_target = self.intermediate_loss(hidden_state, y, indices, 'target', step_type, batch_size, cur_dep)
             loss_ls.append(med_target_loss)
             mrr_ls.append(med_target_mrr)
             acc_ls.append(med_target_acc)
 
-            # compute intermediate parent loss
-            if self.train_config.use_parent_loss:
-                indices = torch.where(torch.logical_and(torch.logical_and(dep < cur_dep, msk_pa == True), oper <= self.max_oper))
-                med_parent_loss, med_parent_mrr, med_parent_acc, num_parent = self.compute_intermediate_parent_loss(cur_dep, hidden_state, y, msk_pa, dep)
-                loss_parent_ls.append(med_parent_loss)
-                mrr_parent_ls.append(med_parent_mrr)
-                acc_parent_ls.append(med_parent_acc)
+            # compute intermediate parent loss always
+            indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep - 1, msk_pa == True), oper <= self.max_oper))
+            hidden_state_for_parent = hidden_state if self.train_config.use_parent_loss else hidden_state.detach()
+            med_parent_loss, med_parent_mrr, med_parent_acc, num_parent = self.intermediate_loss(hidden_state_for_parent, y, indices, 'parent', step_type, batch_size, cur_dep)
+            loss_parent_ls.append(med_parent_loss)
+            mrr_parent_ls.append(med_parent_mrr)
+            acc_parent_ls.append(med_parent_acc)
 
             med_loss_ratio.append(self.train_config.med_loss_ratio[cur_dep] if len(self.train_config.med_loss_ratio) > cur_dep else 1.0)
             
@@ -233,14 +260,20 @@ class Pipeline(PipelineBase):
 
         # final output
         output = self.training_model.readout(hidden_state)
-
         # also do next token prediction loss 
-        if self.loss_n_model is not None:
-            output_n = output[:, :-1, :]
-            y_n = x[:, 1:]
-            loss_n = self.loss_n_model(output_n.reshape(-1, output_n.size(-1)), y_n.reshape(-1))
-        else: 
-            loss_n = 0.0
+        var_msk_to_predict = msk_target | msk_pa
+        var_msk_to_predict = var_msk_to_predict[:, 1:]  # exclude the first token to make it match the y_n
+        # prepare the output and label for next token prediction loss
+        output_n = output[:, :-1, :] if self.train_config.use_loss_n else output[:, :-1, :].detach()
+        y_n = x[:, 1:]
+        
+        cur_dep = self.max_dep - 1
+        loss_n_var, _, _, num_var = self.intermediate_loss(output_n, y_n, var_msk_to_predict, 'NTPvar', step_type, batch_size, cur_dep)
+        
+        loss_n_oper, _, _, num_oper = self.intermediate_loss(output_n, y_n, ~var_msk_to_predict, 'NTPoper', step_type, batch_size, cur_dep)
+        
+        # note that the number of operations is roughly the same as the number of variables in the sentence, so we don't do any scaling here
+        loss_n = loss_n_var * num_var + loss_n_oper * num_oper / (num_var + num_oper)
 
         loss_p = 0.0
         loss_parent = 0.0
@@ -257,48 +290,37 @@ class Pipeline(PipelineBase):
                 mrr += mrr_ls[i]
                 acc += acc_ls[i]
                 
-                if self.train_config.use_parent_loss:
-                    loss_parent += loss_parent_ls[i] * med_loss_ratio[i]
-                    mrr_parent += mrr_parent_ls[i]
-                    acc_parent += acc_parent_ls[i]
+                loss_parent += loss_parent_ls[i] * med_loss_ratio[i]
+                mrr_parent += mrr_parent_ls[i]
+                acc_parent += acc_parent_ls[i]
                 
                 num_effective_dep += 1
                 add_med_loss_prob_total += med_loss_ratio[i]
                 # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
 
-                self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-                self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
-                self.log(f"{step_type}_acc_dep_{i}", acc_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
-
-                if self.train_config.use_parent_loss:
-                    self.log(f"{step_type}_loss_pa_dep_{i}", loss_parent_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-                    self.log(f"{step_type}_mrr_pa_dep_{i}", mrr_parent_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
-                    self.log(f"{step_type}_acc_pa_dep_{i}", acc_parent_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
         
         if num_effective_dep > 0:
             loss_p /= add_med_loss_prob_total
             mrr /= num_effective_dep
             acc /= num_effective_dep
-            if self.train_config.use_parent_loss:
-                loss_parent /= add_med_loss_prob_total
-                mrr_parent /= num_effective_dep
-                acc_parent /= num_effective_dep
+            loss_parent /= add_med_loss_prob_total
+            mrr_parent /= num_effective_dep
+            acc_parent /= num_effective_dep
         else:
             return None, None, None
 
-        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
-        self.log(f"{step_type}_acc", acc, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
+        self.log(f"{step_type}_target_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        self.log(f"{step_type}_target_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
+        self.log(f"{step_type}_target_acc", acc, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
         
-        if self.train_config.use_parent_loss:
-            self.log(f"{step_type}_loss_pa", loss_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-            self.log(f"{step_type}_mrr_pa", mrr_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
-            self.log(f"{step_type}_acc_pa", acc_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
+        self.log(f"{step_type}_parent_loss", loss_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        self.log(f"{step_type}_parent_mrr", mrr_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
+        self.log(f"{step_type}_parent_acc", acc_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
             
-        if self.loss_n_model is not None:
-            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
-        return loss_p + loss_parent * self.train_config.parent_loss_scale, loss_n, output
+        loss = loss_p + loss_parent * self.train_config.loss_parent_scale
+        return loss, loss_n, output
 
         
  
