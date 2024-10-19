@@ -1,7 +1,6 @@
 import unittest
 import torch
-
-from models.language_models import RecurrentTransformerLM
+from models.language_models import RecurrentTransformerLM  # Adjust the import based on your project structure
 
 class TestRecurrentTransformerLM(unittest.TestCase):
     def test_model_initialization(self):
@@ -47,20 +46,24 @@ class TestRecurrentTransformerLM(unittest.TestCase):
                     self.assertIsNotNone(model)
 
                     # Create dummy input data
-                    x = torch.randint(0, vocab_size, (1, 10))
+                    batch_size, sequence_length = 1, 10
+                    x = torch.randint(0, vocab_size, (batch_size, sequence_length))
 
-                    # check that model can run with default number of iterations
+                    # Check that model can run with default number of iterations
                     logits, _ = model(x)
                     self.assertIsNotNone(logits)
+                    self.assertEqual(logits.shape, (batch_size, sequence_length, vocab_size))
 
-                    # check that model can run with default number of iterations and compute loss if targets are provided
+                    # Check that model can run with default number of iterations and compute loss if targets are provided
                     logits, loss = model(x, targets=x)
                     self.assertIsNotNone(loss)
+                    self.assertEqual(logits.shape, (batch_size, sequence_length, vocab_size))
 
-                    # check that model can run with different number of iterations
-                    for n_iters in range(default_n_iters*2):
+                    # Check that model can run with different number of iterations
+                    for n_iters in range(default_n_iters * 2):
                         logits, _ = model(x, n_iters=n_iters)
                         self.assertIsNotNone(logits)
+                        self.assertEqual(logits.shape, (batch_size, sequence_length, vocab_size))
 
 if __name__ == '__main__':
     unittest.main()
