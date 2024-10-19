@@ -20,9 +20,12 @@ train_start(
     **{
         'use_wandb': True,
         'use_loss_n': args.use_loss_n,
+        'use_parent_loss': args.use_parent_loss,
         'seed': 21,
         'max_dep': args.max_dep,
         'med_loss_ratio': args.med_loss_ratio,
+        'last_run_name': args.last_run_name,
+        'ckpt_file_name': args.ckpt_file_name,
         'num_workers': args.num_workers
     }
 )
