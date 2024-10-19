@@ -56,8 +56,5 @@ class GPT2LinearReg(nnModule):
         output = self.readout(x)
         return output
     
-class LoopGPTBlock(GPT2Standard):
-    def __init__(self, config: EasyDict, vocab_size: int, weight_tie: bool = False):
-        super().__init__(config, vocab_size, weight_tie)
-        self.med_readout = ReadOut(config.hidden_size, vocab_size)
+
 

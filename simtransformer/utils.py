@@ -234,3 +234,25 @@ def estimate_mfu(self, fwdbwd_per_iter, dt, num_layers, num_heads, dim_per_head,
     flops_promised = 312e12  # A100 GPU bfloat16 peak flops is 312 TFLOPS
     mfu = flops_achieved / flops_promised
     return mfu
+
+def token_accuracy(y_hat, y):
+    """
+    Computes the token prediction accuracy.
+
+    Parameters:
+    y_hat (torch.Tensor): Predictions from the model of shape (batch_size, num_classes).
+    y (torch.Tensor): Ground truth labels of shape (batch_size,).
+
+    Returns:
+    float: The accuracy of token predictions.
+    """
+    # Get the predicted class by taking the argmax over the class dimension
+    predicted = torch.argmax(y_hat, dim=1)
+    
+    # Compare predictions with the ground truth labels
+    correct_predictions = (predicted == y).sum().item()
+    
+    # Compute accuracy
+    accuracy = correct_predictions / y.size(0)
+    
+    return accuracy
