@@ -187,6 +187,7 @@ class TrainingManagerBase():
             monitor='val_loss',
             mode='min',
         )
+        
         lr_monitor = LearningRateMonitor(logging_interval='step')
         trainer = Trainer(
             max_epochs=self.train_config.max_epochs,
