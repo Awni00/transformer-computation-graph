@@ -213,6 +213,7 @@ class Pipeline(PipelineBase):
         x, y, msk_target = train_batch
         dep, oper, msk_pa = batch_info['dep'], batch_info['oper'], batch_info['msk_pa']
         batch_size = self.len_batch(batch)
+
         
         # x (batch_size, seq_len, Optional)
         # y (batch_size, seq_len, Optional)
