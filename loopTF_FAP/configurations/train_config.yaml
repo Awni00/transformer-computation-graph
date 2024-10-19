@@ -20,11 +20,12 @@ num_workers: 16
 max_oper: 1000
 max_dep: 6
 med_loss_ratio:
-  - 0.0
   - 1.0
-  - 0.0
   - 1.0
-  - 0.0
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
 use_loss_n: True
 loss_n_scale: 1.0
 add_input_per_loop: false
