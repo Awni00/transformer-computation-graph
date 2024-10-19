@@ -230,6 +230,9 @@ class RecurrentTransformerLM(nn.Module):
     def __init__(self,
         vocab_size: int,
         d_model: int,
+        init_block_depth: int,
+        recurrent_block_depth: int,
+        head_block_depth: int,
         default_n_iters: int,
         n_heads: int,
         dff: int,
@@ -254,8 +257,14 @@ class RecurrentTransformerLM(nn.Module):
             vocabulary size.
         d_model : int
             model dimension.
-        n_layers : int
-            number of layers.
+        init_block_depth : int
+            depth of the initial block, applied before beginning of recurrence.
+        recurrent_block_depth : int
+            depth of the recurrent block. At each iteration, this block is applied.
+        head_block_depth : int
+            depth of the head block. After the recurrence, this block is applied to generate the final output.
+        default_n_iters : int
+            default number of iterations for the recurrent block. This can be specified arbitrarily at inference time.
         n_heads : int
             number of attention heads.
         dff : int
@@ -268,10 +277,16 @@ class RecurrentTransformerLM(nn.Module):
             whether to apply layer normalization before or after attention.
         max_block_size : int
             maximum context size.
+        norm_type : str, optional
+            type of normalization to use, by default 'layernorm'.
         bias : bool, optional
-            whether to use bias in attention, by default True
-        pos_enc_type : 'pos_emb' or 'RoPE', optional
-            type of positional encoding to use, by default 'pos_emb'
+            whether to use bias in attention, by default True.
+        pos_enc_type : str, optional
+            type of positional encoding to use, by default 'pos_emb'.
+        use_flash_attention : bool, optional
+            whether to use flash attention, by default True.
+        block_kwargs : dict, optional
+            additional arguments for the blocks, by default None.
         """
 
         super().__init__()
@@ -279,6 +294,9 @@ class RecurrentTransformerLM(nn.Module):
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.default_n_iters = default_n_iters
+        self.init_block_depth = init_block_depth
+        self.recurrent_block_depth = recurrent_block_depth
+        self.head_block_depth = head_block_depth
         self.n_heads = n_heads
         self.dff = dff
         self.dropout_rate = dropout_rate
@@ -295,9 +313,15 @@ class RecurrentTransformerLM(nn.Module):
         layers = dict(
             token_embedder = nn.Embedding(vocab_size, d_model),
             dropout = nn.Dropout(dropout_rate),
-            block = EncoderBlock(
+            init_blocks = nn.ModuleList([EncoderBlock(
                 d_model=d_model, n_heads=n_heads, dff=dff, dropout_rate=dropout_rate, activation=activation,
-                norm_first=norm_first, norm_type=norm_type, bias=bias, causal=True, **self.block_kwargs),
+                norm_first=norm_first, norm_type=norm_type, bias=bias, causal=True, **self.block_kwargs) for _ in range(init_block_depth)]),
+            recurrent_blocks = nn.ModuleList([EncoderBlock(
+                d_model=d_model, n_heads=n_heads, dff=dff, dropout_rate=dropout_rate, activation=activation,
+                norm_first=norm_first, norm_type=norm_type, bias=bias, causal=True, **self.block_kwargs) for _ in range(recurrent_block_depth)]),
+            head_blocks = nn.ModuleList([EncoderBlock(
+                d_model=d_model, n_heads=n_heads, dff=dff, dropout_rate=dropout_rate, activation=activation,
+                norm_first=norm_first, norm_type=norm_type, bias=bias, causal=True, **self.block_kwargs) for _ in range(head_block_depth)]),
             norm = create_norm(d_model, self.norm_type),
             final_out = nn.Linear(d_model, vocab_size, bias=False)
             )
@@ -364,8 +388,18 @@ class RecurrentTransformerLM(nn.Module):
         if n_iters is None:
             n_iters = self.default_n_iters
 
+        # first, apply the initial blocks
+        for enc_block in self.layers.init_blocks:
+            x = enc_block(x, freqs_cos=freqs_cos, freqs_sin=freqs_sin, need_weights=self._need_weights)
+
+        # then, reccurently apply the recurrent blocks n_iters times
         for _ in range(n_iters):
-            x = self.layers.block(x, freqs_cos=freqs_cos, freqs_sin=freqs_sin, need_weights=self._need_weights)
+            for enc_block in self.layers.recurrent_blocks:
+                x = enc_block(x, freqs_cos=freqs_cos, freqs_sin=freqs_sin, need_weights=self._need_weights)
+
+        # finally, apply the head blocks to generate the final output
+        for enc_block in self.layers.head_blocks:
+            x = enc_block(x, freqs_cos=freqs_cos, freqs_sin=freqs_sin, need_weights=self._need_weights)
 
         x = self.layers.norm(x)
 
