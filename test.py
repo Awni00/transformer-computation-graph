@@ -24,8 +24,6 @@ train_start(
         'seed': 21,
         'max_dep': args.max_dep,
         'med_loss_ratio': args.med_loss_ratio,
-        'last_run_name': args.last_run_name,
-        'ckpt_file_name': args.ckpt_file_name,
         'num_workers': args.num_workers
     }
 )
