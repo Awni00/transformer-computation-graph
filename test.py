@@ -4,6 +4,7 @@ import argparse
 def parse_args():
     parser = argparse.ArgumentParser(description="Training parameters")
     parser.add_argument('--use_loss_n', type=bool, default=True, help='Use NTP loss')
+    parser.add_argument('--use_parent_loss', type=bool, default=True, help='Use parent loss')
     parser.add_argument('--max_dep', type=int, default=6, help='Maximum depth')
     parser.add_argument('--med_loss_ratio', type=float, nargs='+', default=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0], required=False, help='List of float values for med_loss_ratio')
     parser.add_argument('--last_run_name', type=str, required=False, help='Name of the last run')

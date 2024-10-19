@@ -30,6 +30,6 @@ use_loss_n: True
 loss_n_scale: 1.0
 add_input_per_loop: false
 use_parent_loss: false
-loss_parent_scale: 0.01
+loss_parent_scale: 1.0
 log_mrr: False
 log_acc: true
