@@ -76,6 +76,9 @@ class TrainingManagerBase():
         # seed_everything
         if self.train_config.seed is not None:
             seed_everything(self.train_config.seed, workers=True)
+        else:
+            self.train_config.seed = int(time.time())
+            seed_everything(self.train_config.seed, workers=True)
 
         # sync vocab size and obtain vocab
         if os.path.exists(self.dir_handler.vocab_path):
