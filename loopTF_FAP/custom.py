@@ -252,9 +252,9 @@ class Pipeline(PipelineBase):
                 # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
             
             
-            # compute intermediate target loss
+            # compute intermediate target loss at the '=' position
             indices = torch.logical_and(torch.logical_and(dep == cur_dep, msk_target == True), oper <= self.max_oper)
-            med_target_loss, med_target_mrr, med_target_acc, num_target = self.intermediate_loss(hidden_state, y, indices, 'target', step_type, batch_size, cur_dep)
+            med_target_loss, med_target_mrr, med_target_acc, num_target = self.intermediate_loss(hidden_state[:, 0:-1, :], y[:, 1:], indices[:, 1:], 'target', step_type, batch_size, cur_dep) 
             loss_ls.append(med_target_loss)
             mrr_ls.append(med_target_mrr)
             acc_ls.append(med_target_acc)
