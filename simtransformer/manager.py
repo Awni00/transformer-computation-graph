@@ -7,6 +7,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.loggers import WandbLogger
 from .utils import clever_load, clever_save, EasyDict
+import torch
 # import deepcopy
 from copy import deepcopy
 
@@ -160,6 +161,9 @@ class TrainingManagerBase():
     def setup_modules_restore(self, ckpt_path):
         self.datamodule = self.abstract_datamodule(**self.config_datamodule())
         self.pipeline = self.abstract_pipeline.load_from_checkpoint(ckpt_path, **self.config_pipeline())
+        state_dict = torch.load(ckpt_path)['state_dict']
+        self.pipeline.load_state_dict(state_dict, strict=False)
+
 
     @final
     def wandb_initialization(self, use_wandb):
