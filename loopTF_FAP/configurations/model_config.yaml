@@ -4,7 +4,7 @@ causal_attn: true
 hidden_size: 256
 layer_norm_eps: 1.0e-05
 max_seq_len: 1024
-num_heads: 8
+num_heads: 16
 num_layers: 2
 pos_enc_type: DeBERTa
 q_k_v_o_proj_enabled:
