@@ -1,10 +1,6 @@
 import os
 from ..custom import Config, Pipeline, DataModule, TrainingManager
 from simtransformer.module_base import DirectoryHandler
-import argparse
-import torch
-import numpy as np
-import random
 import re
 from simtransformer.utils import clever_load
 
@@ -36,7 +32,7 @@ def train_start(data_file_name, vocab_file_name, **kwargs):
     training_manager.fit()
     
     
-def train_continue(data_file_name, vocab_file_name, last_run_name, ckpt_file_name, **kwargs):
+def train_continue(last_run_name, ckpt_file_name, **kwargs):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
     grandparent_dir = os.path.dirname(parent_dir)
@@ -57,14 +53,18 @@ def train_continue(data_file_name, vocab_file_name, last_run_name, ckpt_file_nam
     
     dir_handler = DirectoryHandler(
         load_data_abs_dir=os.path.join(task_dir, 'data'),
-        data_file_name=data_file_name,
-        vocab_file_name=vocab_file_name,
+        data_file_name=None,
+        vocab_file_name=None,
         load_config_abs_dir=os.path.join(last_run_dir, 'configurations'),
         load_ckpt_abs_path=load_ckpt_abs_path,
         output_abs_dir=None,
         create_run_under_abs_dir=task_dir, # will create new folder 'run'
         training_name=training_name,
     )
+
+    config = Config(dir_handler.load_config_dir)
+    dir_handler.data_file_name = config.data_config.data_file_name
+    dir_handler.vocab_file_name = config.data_config.vocab_file_name
 
     training_manager = TrainingManager(
             dir_handler=dir_handler,
