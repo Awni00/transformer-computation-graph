@@ -22,7 +22,7 @@ train_start(
         'use_wandb': True,
         # 'use_loss_n': args.use_loss_n,
         # 'use_parent_loss': args.use_parent_loss,
-        'seed': args.seed,
+        # 'seed': args.seed,
         'max_dep': args.max_dep,
         'med_loss_ratio': args.med_loss_ratio,
         'num_workers': args.num_workers

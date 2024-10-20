@@ -1,5 +1,5 @@
 import os
-from ..custom_v1 import Config, Pipeline, DataModule, TrainingManager
+from ..custom_v2 import Config, Pipeline, DataModule, TrainingManager
 from simtransformer.module_base import DirectoryHandler
 import re
 from simtransformer.utils import clever_load
