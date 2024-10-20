@@ -62,9 +62,10 @@ def train_continue(last_run_name, ckpt_file_name, **kwargs):
         training_name=training_name,
     )
 
-    config = Config(dir_handler.load_config_dir)
-    dir_handler.data_file_name = config.data_config.data_file_name
-    dir_handler.vocab_file_name = config.data_config.vocab_file_name
+    path_to_dirhandler = os.path.join(last_run_dir, 'configurations', 'dir_handler.yaml')
+    dir_handler_old = DirectoryHandler.load_from_file(path_to_dirhandler)
+    dir_handler.data_file_name = dir_handler_old.data_file_name
+    dir_handler.vocab_file_name = dir_handler_old.vocab_file_name
 
     training_manager = TrainingManager(
             dir_handler=dir_handler,
