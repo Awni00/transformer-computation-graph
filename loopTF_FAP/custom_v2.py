@@ -90,7 +90,7 @@ class DataModule(DataModuleBase):
         max_seq_len = max([len(s) for s in sentences])
         
         x_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.long).fill_(self.vocab["<pad>"])
-        y_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.long)
+        y_tensor = torch.zeros(len(batch), max_seq_len, dtype=torch.long).fill_(self.vocab["<pad>"])
         
         # initialize the depth and operation tensors with a large number
         dep_tensor = torch.full((len(batch), max_seq_len), torch.iinfo(torch.long).max, dtype=torch.long)
@@ -168,12 +168,12 @@ class Pipeline(PipelineBase):
 
         self.med_loss_counter = [0 for _ in range(self.max_dep)]
 
-    def compute_intermediate_target_loss(self, cur_dep, hidden_state, y, mask, dep):
+    def compute_intermediate_target_loss(self, cur_dep, hidden_state, y, mask, dep, oper):
         """
         Select the intermediate target for each depth. 
         """
         # find all the indices in dep that are equal to cur_dep and dep < max_dep, and mask == True
-        indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep, dep < self.max_dep), mask == True))
+        indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep, oper < self.max_oper), mask == True))
         
         selected_state = self._mask_select(hidden_state, indices)
         selected_label = self._mask_select(y, indices)
@@ -235,9 +235,10 @@ class Pipeline(PipelineBase):
         output = self.training_model.readout(hidden_state)
 
         # also do next token prediction loss 
+        msk_n = mask[:, 1:] # mask for '='
         if self.loss_n_model is not None:
-            output_n = output[:, :-1, :]
-            y_n = y[:, 1:]
+            output_n = self._mask_select(output[:, :-1, :], msk_n)
+            y_n = self._mask_select(y[:, 1:], msk_n)
             loss_n = self.loss_n_model(output_n.reshape(-1, output_n.size(-1)), y_n.reshape(-1))
         else: 
             loss_n = 0.0
