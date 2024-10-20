@@ -33,3 +33,4 @@ use_parent_loss: True
 loss_parent_scale: 0.5
 log_mrr: true
 log_acc: true
+loss_eq_scale: 0.5
