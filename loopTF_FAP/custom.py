@@ -35,6 +35,14 @@ class TrainingManager(TrainingManagerBase):
             Operation_type = '[ADD]'
         else:
             Operation_type = '[ADD,MUL]'
+        if self.train_config.use_loss_n:
+            ntp_scale = f'{self.train_config.loss_n_scale:.1f}'
+        else:
+            ntp_scale = '0.0'
+        if self.train_config.use_parent_loss:
+            parent_scale = f'{self.train_config.loss_parent_scale:.1f}'
+        else:
+            parent_scale = '0.0'
         training_name = (
             'L' + str(self.model_config.num_layers) +
             'H' + str(self.model_config.num_heads) +
@@ -45,7 +53,8 @@ class TrainingManager(TrainingManagerBase):
             Operation_type + 
             '-' +
             'MR' + add_med_loss_prob_str +
-            'NTP' + f'{self.train_config.loss_n_scale:.1f}' + 
+            'NTP' + ntp_scale + 
+            'PAR' + parent_scale +
             '-' +
             time.strftime("%m%d-%H%M")
         )  # default
