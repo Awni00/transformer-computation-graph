@@ -169,6 +169,9 @@ class Pipeline(PipelineBase):
 
         self.med_loss_counter = [0 for _ in range(self.max_dep)]
 
+        self.loss_parent_scale = self.train_config.loss_parent_scale if self.train_config.use_parent_loss else 0.0
+        
+
     def intermediate_loss(self, hidden_state, y, indices, loss_type: str, step_type: str, batch_size: int, cur_dep: int):
         """
         Select the intermediate target for each depth. 
@@ -312,10 +315,13 @@ class Pipeline(PipelineBase):
         self.log(f"{step_type}_parent_loss", loss_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         self.log(f"{step_type}_parent_mrr", mrr_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_mrr else None
         self.log(f"{step_type}_parent_acc", acc_parent, prog_bar=True, logger=True, batch_size=self.len_batch(batch)) if self.train_config.log_acc else None
-            
-        self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        
+        
+        loss_p = (loss_target + loss_parent * self.loss_parent_scale) / (1.0 + self.loss_parent_scale)
+        loss = (loss_p + loss_n * self.loss_n_scale) / (1.0 + self.loss_n_scale)
+        self.log(f"{step_type}_loss", loss, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
-        loss_p = (loss_target + loss_parent * self.train_config.loss_parent_scale) / (1.0 + self.train_config.loss_parent_scale)
+        
         return loss_p, loss_n, 0.0
 
         

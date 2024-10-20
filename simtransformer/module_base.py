@@ -264,7 +264,7 @@ class PipelineBase(lightning.LightningModule):
         self.training_model = training_model
         self.loss_p_model = loss_p_model
         self.loss_n_model = loss_n_model
-        
+        self.loss_n_scale = self.train_config.loss_n_scale if self.train_config.use_loss_n else 0.0
         self.last_epoch = -1 # to track is there is a change in self.current_epoch for calling on_my_epoch_end
     
     # initialize from an existing PipelineBase object
@@ -375,8 +375,8 @@ class PipelineBase(lightning.LightningModule):
             param_norm += torch.linalg.norm(parameter)
         self.log("param_norm", param_norm, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
-        loss_n_scale = self.train_config.loss_n_scale
-        step_dict = {'loss': loss_p + loss_n * loss_n_scale, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
+        loss_n_scale = self.loss_n_scale
+        step_dict = {'loss': (loss_p + loss_n * loss_n_scale) / (1.0 + loss_n_scale), 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.training_step_end(step_dict)
         
         return step_dict
@@ -397,7 +397,7 @@ class PipelineBase(lightning.LightningModule):
         if loss_p is None or loss_n is None or output is None:
             return 0.0
         
-        loss_n_scale = self.train_config.loss_n_scale
+        loss_n_scale = self.loss_n_scale
         step_dict = {'loss': loss_p + loss_n * loss_n_scale, 'loss_p':loss_p, 'loss_n':loss_n, 'output':output, 'batch':batch}
         self.validation_step_end(step_dict)
         return step_dict

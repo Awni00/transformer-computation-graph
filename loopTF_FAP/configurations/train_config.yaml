@@ -27,7 +27,7 @@ med_loss_ratio:
   - 1.0
   - 1.0
 use_loss_n: True
-loss_n_scale: 1.0
+loss_n_scale: 0.5
 add_input_per_loop: false
 use_parent_loss: false
 loss_parent_scale: 1.0
