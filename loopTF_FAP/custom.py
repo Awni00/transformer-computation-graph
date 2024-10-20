@@ -38,11 +38,11 @@ class TrainingManager(TrainingManagerBase):
         if self.train_config.use_loss_n:
             ntp_scale = f'{self.train_config.loss_n_scale:.1f}'
         else:
-            ntp_scale = '0.0'
+            ntp_scale = 'NA'
         if self.train_config.use_parent_loss:
             parent_scale = f'{self.train_config.loss_parent_scale:.1f}'
         else:
-            parent_scale = '0.0'
+            parent_scale = 'NA'
         training_name = (
             'L' + str(self.model_config.num_layers) +
             'H' + str(self.model_config.num_heads) +
@@ -169,7 +169,8 @@ class Pipeline(PipelineBase):
 
         self.med_loss_counter = [0 for _ in range(self.max_dep)]
 
-        self.loss_parent_scale = self.train_config.loss_parent_scale if self.train_config.use_parent_loss else 0.0
+        self.loss_parent_scale = self.train_config.loss_parent_scale
+        self.loss_n_scale = self.train_config.loss_n_scale
         
 
     def intermediate_loss(self, hidden_state, y, indices, loss_type: str, step_type: str, batch_size: int, cur_dep: int):
@@ -284,7 +285,7 @@ class Pipeline(PipelineBase):
         loss_n_oper, _, _, num_oper = self.intermediate_loss(hidden_state_n, y_n, ~var_msk_to_predict, 'NTPoper', step_type, batch_size, cur_dep)
         
         # note that the number of operations is roughly the same as the number of variables in the sentence, so we don't do any scaling here
-        loss_n = loss_n_var * num_var + loss_n_oper * num_oper / (num_var + num_oper)
+        loss_n = (loss_n_var * num_var + loss_n_oper * num_oper) / (num_var + num_oper)
 
         loss_p = 0.0
         loss_parent = 0.0
@@ -321,7 +322,6 @@ class Pipeline(PipelineBase):
         loss = (loss_p + loss_n * self.loss_n_scale) / (1.0 + self.loss_n_scale)
         self.log(f"{step_type}_loss", loss, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
-        
         return loss_p, loss_n, 0.0
 
         

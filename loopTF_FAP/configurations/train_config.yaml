@@ -1,4 +1,4 @@
-batch_size: 64
+batch_size: 128
 lr_scheduler: cosine
 cosine_scheduler_config:
   lr_decay_steps: 300000.0
@@ -26,10 +26,10 @@ med_loss_ratio:
   - 1.0
   - 1.0
   - 1.0
-use_loss_n: False
+use_loss_n: false
 loss_n_scale: 0.5
-add_input_per_loop: false
-use_parent_loss: False
+use_parent_loss: false
 loss_parent_scale: 1.0
 log_mrr: true
 log_acc: true
+add_input_per_loop: false
