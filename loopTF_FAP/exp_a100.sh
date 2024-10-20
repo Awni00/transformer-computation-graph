@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:a100:1 
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=8
-#SBATCH --time=24:00:00 
+#SBATCH --time=64:00:00 
 #SBATCH --output=slurm_output/%j.out 
 #SBATCH --error=slurm_output/%j.err 
 #SBATCH --requeue 
@@ -26,6 +26,5 @@ cd /home/sc3226/project/transformer-computation-graph
 module load miniconda
 conda activate scgpt1
 
-
-python test.py --max_dep 6 --med_loss_ratio 0.1 1.0 0.1 1.0 0.1 1.0 --num_workers 8
+python test.py --max_dep 6 --med_loss_ratio 1.0 1.0 1.0 1.0 1.0 1.0 --num_workers 8
 
