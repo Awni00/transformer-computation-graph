@@ -3,8 +3,8 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Training parameters")
-    parser.add_argument('--use_loss_n', type=bool, default=True, help='Use NTP loss')
-    parser.add_argument('--use_parent_loss', type=bool, default=True, help='Use parent loss')
+    # parser.add_argument('--use_loss_n', type=bool, default=True, help='Use NTP loss')
+    # parser.add_argument('--use_parent_loss', type=bool, default=False, help='Use parent loss')
     parser.add_argument('--max_dep', type=int, default=6, help='Maximum depth')
     parser.add_argument('--med_loss_ratio', type=float, nargs='+', default=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0], required=False, help='List of float values for med_loss_ratio')
     parser.add_argument('--seed', type=int, default=41, help='Random seed')
@@ -20,8 +20,8 @@ train_start(
     vocab_file_name='dag_vocab.yaml',
     **{
         'use_wandb': True,
-        'use_loss_n': args.use_loss_n,
-        'use_parent_loss': args.use_parent_loss,
+        # 'use_loss_n': args.use_loss_n,
+        # 'use_parent_loss': args.use_parent_loss,
         'seed': args.seed,
         'max_dep': args.max_dep,
         'med_loss_ratio': args.med_loss_ratio,

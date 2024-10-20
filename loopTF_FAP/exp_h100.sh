@@ -27,4 +27,4 @@ cd /home/sc3226/project/transformer-computation-graph
 module load miniconda
 conda activate scgpt1
 
-python test.py --max_dep 6 --med_loss_ratio 1.0 1.0 1.0 1.0 1.0 1.0 --num_workers 8 --use_parent_loss False
+python test.py --max_dep 6 --med_loss_ratio 1.0 1.0 1.0 1.0 1.0 1.0 --num_workers 8
