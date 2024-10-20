@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.utils.data import random_split
 from simtransformer.manager import TrainingManagerBase
 from simtransformer.model_bank import GPT2Standard
-from simtransformer.utils import MRR_fn, EasyDict
+from simtransformer.utils import MRR_fn, EasyDict, token_accuracy
 from simtransformer.model_base import LinearWithChannel, ReadOut
 from typing import Optional
 import re
