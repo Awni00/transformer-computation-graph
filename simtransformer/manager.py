@@ -162,7 +162,7 @@ class TrainingManagerBase():
         self.datamodule = self.abstract_datamodule(**self.config_datamodule())
         self.pipeline = self.abstract_pipeline.load_from_checkpoint(ckpt_path, **self.config_pipeline())
         state_dict = torch.load(ckpt_path)['state_dict']
-        self.pipeline.load_state_dict(state_dict, strict=False)
+        self.pipeline.load_state_dict(state_dict)
 
 
     @final
