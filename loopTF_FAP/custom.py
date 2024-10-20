@@ -253,14 +253,14 @@ class Pipeline(PipelineBase):
             
             
             # compute intermediate target loss at the '=' position
-            indices = torch.logical_and(torch.logical_and(dep == cur_dep, msk_target == True), oper <= self.max_oper)
+            indices = torch.logical_and(torch.logical_and(dep <= cur_dep, msk_target == True), oper <= self.max_oper)
             med_target_loss, med_target_mrr, med_target_acc, num_target = self.intermediate_loss(hidden_state[:, 0:-1, :], y[:, 1:], indices[:, 1:], 'target', step_type, batch_size, cur_dep) 
             loss_ls.append(med_target_loss)
             mrr_ls.append(med_target_mrr)
             acc_ls.append(med_target_acc)
 
             # compute intermediate parent loss always
-            indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep - 1, msk_pa == True), oper <= self.max_oper))
+            indices = torch.logical_and(torch.logical_and(dep <= cur_dep - 1, msk_pa == True), oper <= self.max_oper)
             hidden_state_for_parent = hidden_state if self.train_config.use_parent_loss else hidden_state.detach()
             med_parent_loss, med_parent_mrr, med_parent_acc, num_parent = self.intermediate_loss(hidden_state_for_parent, y, indices, 'parent', step_type, batch_size, cur_dep)
             loss_parent_ls.append(med_parent_loss)
