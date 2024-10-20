@@ -613,7 +613,7 @@ class DataModuleBase(lightning.LightningDataModule):
                           num_workers=num_workers)
     
     def val_dataloader(self):
-        num_workers = 2 * torch.cuda.device_count()
+        num_workers = 4 * torch.cuda.device_count()
         return DataLoader(self.data_val, 
                           batch_size=self.data_config.batch_size, 
                           collate_fn=lambda x: x,
