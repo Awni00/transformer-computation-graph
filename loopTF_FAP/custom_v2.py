@@ -220,7 +220,7 @@ class Pipeline(PipelineBase):
                 # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
             
             
-            med_target_loss, med_target_mrr, num_selected = self.compute_intermediate_target_loss(cur_dep, hidden_state, y, mask, dep)
+            med_target_loss, med_target_mrr, num_selected = self.compute_intermediate_target_loss(cur_dep, hidden_state, y, mask, dep, oper)
 
             loss_ls.append(med_target_loss)
             mrr_ls.append(med_target_mrr)
