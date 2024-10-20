@@ -188,7 +188,25 @@ class Pipeline(PipelineBase):
         
         return self.loss_p_model(selected_output, selected_label), mrr, len(selected_state)
         
+    def compute_eq_loss(self, cur_dep, hidden_state, y, mask, dep, oper):
+        """
+        Select the intermediate target for each depth. 
+        """
+        # find all the indices in dep that are equal to cur_dep and dep < max_dep, and mask == True
+        indices = torch.logical_and(torch.logical_and(dep <= cur_dep, oper < self.max_oper), mask == True)
         
+        selected_state = self._mask_select(hidden_state[:, :-1, :], indices[:, 1:])
+        selected_label = self._mask_select(y[:, 1:], indices[:, 1:])
+        if selected_state.numel() == 0:
+            return None, None, None
+
+        selected_output = self.training_model.eq_readout(selected_state)
+
+        # compute mrr 
+        mrr = MRR_fn(selected_output, selected_label)
+        # compute loss
+        
+        return self.loss_p_model(selected_output, selected_label), mrr, len(selected_state)
         
 
     def _Step(self, batch, batch_idx, step_type: Optional[str] = None):
@@ -209,6 +227,9 @@ class Pipeline(PipelineBase):
         mrr_ls = []
         med_loss_ratio = []
         
+        loss_eq_ls = []
+        mrr_eq_ls = []
+        
         for cur_dep in range(self.max_dep):
             
             if cur_dep == 0:
@@ -228,7 +249,13 @@ class Pipeline(PipelineBase):
             
             # update loss counter
             self.med_loss_counter[cur_dep] += num_selected if med_target_loss is not None else 0
-
+            
+            
+            # do the loss_n 
+            eq_loss, eq_mrr, eq_selected = self.compute_eq_loss(cur_dep, hidden_state, y, mask, dep, oper)
+            
+            loss_eq_ls.append(eq_loss)
+            mrr_eq_ls.append(eq_mrr)
             
 
         # final output
@@ -244,29 +271,38 @@ class Pipeline(PipelineBase):
             loss_n = 0.0
 
         loss_p = 0.0
+        loss_eq = 0.0
         mrr = 0.0
+        mrr_eq = 0.0
         num_effective_dep = 0
         add_med_loss_prob_total = 0.0
         for i, loss_i in enumerate(loss_ls):
             if loss_i is not None:
                 loss_p += loss_i * med_loss_ratio[i]
+                loss_eq += loss_eq_ls[i] * med_loss_ratio[i]
                 mrr += mrr_ls[i] 
+                mrr_eq += mrr_eq_ls[i]
                 num_effective_dep += 1
                 add_med_loss_prob_total += med_loss_ratio[i]
                 # The total number of parameters with small depth outnumbers the total number of parameters with large depth, so we don't want the mrr of small depth to dominate the mrr of large depth. We want to focus more on large depth. So is for the loss.
 
                 self.log(f"{step_type}_loss_dep_{i}", loss_i, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
                 self.log(f"{step_type}_mrr_dep_{i}", mrr_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+                self.log(f"{step_type}_loss_eq_dep_{i}", loss_eq_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+                self.log(f"{step_type}_mrr_eq_dep_{i}", mrr_eq_ls[i], prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         
         if num_effective_dep > 0:
             loss_p /= add_med_loss_prob_total
             mrr /= num_effective_dep
+            loss_eq /= add_med_loss_prob_total
+            mrr_eq /= num_effective_dep
         else:
             return None, None, None
 
-        self.log(f"{step_type}_loss", loss_p, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        loss = loss_p + loss_eq * self.train_config.loss_eq_scale + loss_n * self.train_config.loss_n_scale
+        self.log(f"{step_type}_loss", loss, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        # self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         if self.loss_n_model is not None:
             self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
-        return loss_p, loss_n, output
+        return loss, 0.0, output
