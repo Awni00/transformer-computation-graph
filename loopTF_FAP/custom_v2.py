@@ -44,7 +44,7 @@ class TrainingManager(TrainingManagerBase):
             Operation_type + 
             '-' +
             'MR' + add_med_loss_prob_str +
-            'NTP' + f'{self.train_config.loss_n_scale:.1f}' + 
+            'NTP' + f'{self.train_config.loss_eq_scale:.1f}' + 
             '-' +
             time.strftime("%m%d-%H%M")
         )  # default
@@ -261,14 +261,14 @@ class Pipeline(PipelineBase):
         # final output
         output = self.training_model.readout(hidden_state)
 
-        # also do next token prediction loss 
-        msk_n = mask[:, 1:] # mask for '='
-        if self.loss_n_model is not None:
-            output_n = self._mask_select(output[:, :-1, :], msk_n)
-            y_n = self._mask_select(y[:, 1:], msk_n)
-            loss_n = self.loss_n_model(output_n.reshape(-1, output_n.size(-1)), y_n.reshape(-1))
-        else: 
-            loss_n = 0.0
+        # # also do next token prediction loss 
+        # msk_n = mask[:, 1:] # mask for '='
+        # if self.loss_n_model is not None:
+        #     output_n = self._mask_select(output[:, :-1, :], msk_n)
+        #     y_n = self._mask_select(y[:, 1:], msk_n)
+        #     loss_n = self.loss_n_model(output_n.reshape(-1, output_n.size(-1)), y_n.reshape(-1))
+        # else: 
+        #     loss_n = 0.0
 
         loss_p = 0.0
         loss_eq = 0.0
@@ -299,10 +299,10 @@ class Pipeline(PipelineBase):
         else:
             return None, None, None
 
-        loss = loss_p + loss_eq * self.train_config.loss_eq_scale + loss_n * self.train_config.loss_n_scale
+        loss = loss_p + loss_eq * self.train_config.loss_eq_scale
         self.log(f"{step_type}_loss", loss, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
         # self.log(f"{step_type}_mrr", mrr, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
-        if self.loss_n_model is not None:
-            self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
+        # if self.loss_n_model is not None:
+        #     self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
         return loss, 0.0, output
