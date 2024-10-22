@@ -230,7 +230,14 @@ class Pipeline(PipelineBase):
         loss_eq_ls = []
         mrr_eq_ls = []
         
-        for cur_dep in range(self.max_dep):
+        if step_type == 'train' or 'val':
+            max_dep = self.max_dep
+        elif step_type == 'test':
+            msk_var_tensor = mask | msk_pa
+            dep_msk = self._mask_select(dep, msk_var_tensor)
+            max_dep = torch.max(dep_msk).item() if dep_msk.numel() > 0 else 0
+        
+        for cur_dep in range(max_dep):
             
             if cur_dep == 0:
                 hidden_state = self.training_model.encoder(token_embedding)
@@ -248,7 +255,7 @@ class Pipeline(PipelineBase):
             med_loss_ratio.append(self.train_config.med_loss_ratio[cur_dep] if len(self.train_config.med_loss_ratio) > cur_dep else 1.0)
             
             # update loss counter
-            self.med_loss_counter[cur_dep] += num_selected if med_target_loss is not None else 0
+            # self.med_loss_counter[cur_dep] += num_selected if med_target_loss is not None else 0
             
             
             # do the loss_n 
@@ -306,3 +313,4 @@ class Pipeline(PipelineBase):
         #     self.log(f"{step_type}_loss_n", loss_n, prog_bar=True, logger=True, batch_size=self.len_batch(batch))
 
         return loss, 0.0, output
+    
