@@ -168,12 +168,12 @@ class Pipeline(PipelineBase):
 
         self.med_loss_counter = [0 for _ in range(self.max_dep)]
 
-    def compute_intermediate_target_loss(self, cur_dep, hidden_state, y, mask, dep, oper):
+    def compute_intermediate_target_loss(self, cur_dep, hidden_state, y, mask, dep, oper, max_oper):
         """
         Select the intermediate target for each depth. 
         """
         # find all the indices in dep that are equal to cur_dep and dep < max_dep, and mask == True
-        indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep, oper < self.max_oper), mask == True))
+        indices = torch.where(torch.logical_and(torch.logical_and(dep == cur_dep, oper < max_oper), mask == True))
         
         selected_state = self._mask_select(hidden_state, indices)
         selected_label = self._mask_select(y, indices)
@@ -188,12 +188,12 @@ class Pipeline(PipelineBase):
         
         return self.loss_p_model(selected_output, selected_label), mrr, len(selected_state)
         
-    def compute_eq_loss(self, cur_dep, hidden_state, y, mask, dep, oper):
+    def compute_eq_loss(self, cur_dep, hidden_state, y, mask, dep, oper, max_oper):
         """
         Select the intermediate target for each depth. 
         """
         # find all the indices in dep that are equal to cur_dep and dep < max_dep, and mask == True
-        indices = torch.logical_and(torch.logical_and(dep <= cur_dep, oper < self.max_oper), mask == True)
+        indices = torch.logical_and(torch.logical_and(dep <= cur_dep, oper < max_oper), mask == True)
         
         selected_state = self._mask_select(hidden_state[:, :-1, :], indices[:, 1:])
         selected_label = self._mask_select(y[:, 1:], indices[:, 1:])
@@ -232,10 +232,14 @@ class Pipeline(PipelineBase):
         
         if step_type == 'train' or 'val':
             max_dep = self.max_dep
+            max_oper = self.max_oper
         elif step_type == 'test':
             msk_var_tensor = mask | msk_pa
             dep_msk = self._mask_select(dep, msk_var_tensor)
+            oper_msk = self._mask_select(oper, msk_var_tensor)
             max_dep = torch.max(dep_msk).item() if dep_msk.numel() > 0 else 0
+            max_oper = torch.max(oper_msk).item() if oper_msk.numel() > 0 else 0
+            
         
         for cur_dep in range(max_dep):
             
@@ -248,7 +252,7 @@ class Pipeline(PipelineBase):
                 # Here, we also add the token embedding to the hidden_state to make the model aware of the input, see https://arxiv.org/pdf/2409.15647 
             
             
-            med_target_loss, med_target_mrr, num_selected = self.compute_intermediate_target_loss(cur_dep, hidden_state, y, mask, dep, oper)
+            med_target_loss, med_target_mrr, num_selected = self.compute_intermediate_target_loss(cur_dep, hidden_state, y, mask, dep, oper, max_oper)
 
             loss_ls.append(med_target_loss)
             mrr_ls.append(med_target_mrr)
@@ -259,7 +263,7 @@ class Pipeline(PipelineBase):
             
             
             # do the loss_n 
-            eq_loss, eq_mrr, eq_selected = self.compute_eq_loss(cur_dep, hidden_state, y, mask, dep, oper)
+            eq_loss, eq_mrr, eq_selected = self.compute_eq_loss(cur_dep, hidden_state, y, mask, dep, oper, max_oper)
             
             loss_eq_ls.append(eq_loss)
             mrr_eq_ls.append(eq_mrr)
