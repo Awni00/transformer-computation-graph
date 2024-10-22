@@ -205,6 +205,16 @@ class TrainingManagerBase():
         trainer.fit(self.pipeline, datamodule=self.datamodule)
         
     @final
+    def test(self):
+        trainer = Trainer(
+            max_epochs=self.train_config.max_epochs,
+            logger=self.wandb_logger,
+            # callbacks=[lr_monitor, checkpoint_callback],
+            default_root_dir=self.dir_handler.output_dir,
+        )
+        trainer.test(self.pipeline, datamodule=self.datamodule)
+        
+    @final
     def probe_fit(self):
         # trainer initialization
         checkpoint_callback = ModelCheckpoint(

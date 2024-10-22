@@ -1,7 +1,7 @@
 from loopTF_FAP.experiments.starter import train_start
 import argparse
 
-def parse_args():
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Training parameters")
     # parser.add_argument('--use_loss_n', type=bool, default=True, help='Use NTP loss')
     # parser.add_argument('--use_parent_loss', type=bool, default=False, help='Use parent loss')
@@ -11,23 +11,22 @@ def parse_args():
     parser.add_argument('--last_run_name', type=str, required=False, help='Name of the last run')
     parser.add_argument('--ckpt_file_name', type=str, required=False, help='Checkpoint file name')
     parser.add_argument('--num_workers', type=int, default=1, help='Number of workers for data loading')
-    return parser.parse_args()
 
-args = parse_args()
+    args = parser.parse_args()
 
-train_start(
-    data_file_name='dag_ADDonly.json',
-    vocab_file_name='dag_vocab.yaml',
-    **{
-        'use_wandb': True,
-        # 'use_loss_n': args.use_loss_n,
-        # 'use_parent_loss': args.use_parent_loss,
-        # 'seed': args.seed,
-        'max_dep': args.max_dep,
-        'med_loss_ratio': args.med_loss_ratio,
-        'num_workers': args.num_workers
-    }
-)
+    train_start(
+        data_file_name='dag_ADDonly.json',
+        vocab_file_name='dag_vocab.yaml',
+        **{
+            'use_wandb': True,
+            # 'use_loss_n': args.use_loss_n,
+            # 'use_parent_loss': args.use_parent_loss,
+            # 'seed': args.seed,
+            'max_dep': args.max_dep,
+            'med_loss_ratio': args.med_loss_ratio,
+            'num_workers': args.num_workers
+        }
+    )
 
 # debug purpose
 # train_start(
