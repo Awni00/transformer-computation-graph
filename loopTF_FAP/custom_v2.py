@@ -38,6 +38,7 @@ class TrainingManager(TrainingManagerBase):
             'L' + str(self.model_config.num_layers) +
             'H' + str(self.model_config.num_heads) +
             'D' + str(self.model_config.hidden_size) + 
+            # 'O' + str(self.train_config.max_oper) +
             '-' +
             'N' + str(self.data_config.dag_config.num_nodes) +
             'DP' + str(self.train_config.max_dep) + 
