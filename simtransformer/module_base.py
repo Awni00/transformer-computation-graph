@@ -594,7 +594,8 @@ class DataModuleBase(lightning.LightningDataModule):
         if stage == "fit":
             data_full = clever_load(self.dir_handler.data_path)
             self.data_train, self.data_val, self.data_test = self.train_val_test_split(data_full)
-        
+            if self.data_config.save_val_indices:
+                clever_save(self.data_val.indices, self.data_config.save_val_indices_path)
         if stage == "test":
             # if self does not have data_test, then use train_val_test_split to split data
             if not hasattr(self, "data_test"):
@@ -614,8 +615,6 @@ class DataModuleBase(lightning.LightningDataModule):
     
     def val_dataloader(self):
         num_workers = 4 * torch.cuda.device_count()
-        if self.data_config.save_val_dataset:
-            clever_save(self.data_val, self.data_config.save_val_dataset_path)
         return DataLoader(self.data_val, 
                           batch_size=self.data_config.batch_size, 
                           collate_fn=lambda x: x,

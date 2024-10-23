@@ -90,25 +90,24 @@ class TrainingManagerBase():
             # self.model_config.vocab_size = None
             self.data_config.vocab_size = None
         
+        # output directory, and generate a training name
+        self.training_name = self.get_training_name()
+        # set up output directory
+        self.dir_handler.set_output_dir(self.training_name)
+
         # save datamodule's validation dataset to the output directory
-        self.data_config.save_val_dataset = self.train_config.save_val_dataset
+        self.data_config.save_val_indices = self.train_config.save_val_indices
         file_extension = os.path.splitext(self.dir_handler.data_file_name)[1]
-        val_dataset_filename = f"val_dataset{file_extension}"
-        val_dataset_path = os.path.join(self.dir_handler.output_dir, val_dataset_filename)
-        self.data_config.save_val_dataset_path = val_dataset_path
-        
+        val_indices_filename = f"val_indices{file_extension}"
+        val_indices_path = os.path.join(self.dir_handler.output_dir, val_indices_filename)
+        self.data_config.save_val_indices_path = val_indices_path
+
         # setup modules
         if self.dir_handler.load_ckpt_path is not None:
             self.setup_modules_restore(self.dir_handler.load_ckpt_path)
         else: 
             self.setup_modules_init()
         
-        
-                    
-        # output directory, and generate a training name
-        self.training_name = self.get_training_name()
-        # set up output directory
-        self.dir_handler.set_output_dir(self.training_name)
 
         # wandb initialization
         self.wandb_logger = self.wandb_initialization(self.train_config.use_wandb)
