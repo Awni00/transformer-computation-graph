@@ -84,6 +84,13 @@ class DataModule(DataModuleBase):
         data_train, data_val = random_split(data_train, [int(0.9*len(data_train)), len(data_train)-int(0.9*len(data_train))])
         return data_train, data_val, data_test
 
+    def test_dataloader(self):
+        num_workers = 2 * torch.cuda.device_count()
+        return DataLoader(self.data_val, 
+                          batch_size=self.data_config.batch_size, 
+                          collate_fn=lambda x: x,
+                          shuffle=False,
+                          num_workers=num_workers)
 
     def transform_batch(self, batch, dataloader_idx):
         """

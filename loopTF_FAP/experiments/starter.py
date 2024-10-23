@@ -30,6 +30,7 @@ def train_start(data_file_name, vocab_file_name, **kwargs):
         )
     
     training_manager.fit()
+    training_manager.test()
     
     
 def train_continue(last_run_name, ckpt_file_name, **kwargs):
