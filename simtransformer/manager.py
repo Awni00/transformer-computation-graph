@@ -95,7 +95,12 @@ class TrainingManagerBase():
             self.setup_modules_restore(self.dir_handler.load_ckpt_path)
         else: 
             self.setup_modules_init()
-            
+        
+        # save datamodule's validation dataset to the output directory
+        if self.train_config.save_val_dataset:
+            val_dataset = self.datamodule.val_dataloader().dataset
+            clever_save(val_dataset, os.path.join(self.dir_handler.output_dir, "val_dataset.json"))
+                    
         # output directory, and generate a training name
         self.training_name = self.get_training_name()
         # set up output directory
