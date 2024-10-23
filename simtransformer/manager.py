@@ -96,6 +96,7 @@ class TrainingManagerBase():
         val_dataset_filename = f"val_dataset{file_extension}"
         val_dataset_path = os.path.join(self.dir_handler.output_dir, val_dataset_filename)
         self.data_config.save_val_dataset_path = val_dataset_path
+        
         # setup modules
         if self.dir_handler.load_ckpt_path is not None:
             self.setup_modules_restore(self.dir_handler.load_ckpt_path)

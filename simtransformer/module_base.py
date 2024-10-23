@@ -614,6 +614,8 @@ class DataModuleBase(lightning.LightningDataModule):
     
     def val_dataloader(self):
         num_workers = 4 * torch.cuda.device_count()
+        if self.data_config.save_val_dataset:
+            clever_save(self.data_val, self.data_config.save_val_dataset_path)
         return DataLoader(self.data_val, 
                           batch_size=self.data_config.batch_size, 
                           collate_fn=lambda x: x,
