@@ -240,10 +240,10 @@ class Pipeline(PipelineBase):
         loss_eq_ls = []
         mrr_eq_ls = []
         
-        if step_type == 'train' or step_type == 'val':
+        if step_type == 'train':
             max_dep = self.max_dep
             max_oper = self.max_oper
-        elif step_type == 'test':
+        elif step_type == 'test' or step_type == 'val':
             msk_var_tensor = mask | msk_pa
             dep_msk = self._mask_select(dep, msk_var_tensor)
             oper_msk = self._mask_select(oper, msk_var_tensor)
