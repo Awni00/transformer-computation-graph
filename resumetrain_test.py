@@ -7,6 +7,6 @@ ckpt_file_name = 'epoch=470-val_loss=0.0016.ckpt'
 
 if __name__ == '__main__':
     if type == 'resumetrain':
-        train_continue(last_run_name, ckpt_file_name)
+        train_continue(last_run_name, ckpt_file_name, save_val_dataset=True)
     elif type == 'test':
         test_start(last_run_name, ckpt_file_name)

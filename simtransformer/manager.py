@@ -90,16 +90,19 @@ class TrainingManagerBase():
             # self.model_config.vocab_size = None
             self.data_config.vocab_size = None
         
+        # save datamodule's validation dataset to the output directory
+        self.data_config.save_val_dataset = self.train_config.save_val_dataset
+        file_extension = os.path.splitext(self.dir_handler.data_file_name)[1]
+        val_dataset_filename = f"val_dataset{file_extension}"
+        val_dataset_path = os.path.join(self.dir_handler.output_dir, val_dataset_filename)
+        self.data_config.save_val_dataset_path = val_dataset_path
         # setup modules
         if self.dir_handler.load_ckpt_path is not None:
             self.setup_modules_restore(self.dir_handler.load_ckpt_path)
         else: 
             self.setup_modules_init()
         
-        # save datamodule's validation dataset to the output directory
-        if self.train_config.save_val_dataset:
-            val_dataset = self.datamodule.val_dataloader().dataset
-            clever_save(val_dataset, os.path.join(self.dir_handler.output_dir, "val_dataset.json"))
+        
                     
         # output directory, and generate a training name
         self.training_name = self.get_training_name()

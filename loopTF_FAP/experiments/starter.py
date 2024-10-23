@@ -49,7 +49,7 @@ def train_continue(last_run_name, ckpt_file_name, **kwargs):
         else:
             training_name = 'v1_' + last_run_name[2:]
     else:
-        training_name = 'v2_' + last_run_name
+        training_name = 'v1_' + last_run_name
     
     dir_handler = DirectoryHandler(
         load_data_abs_dir=os.path.join(task_dir, 'data'),
