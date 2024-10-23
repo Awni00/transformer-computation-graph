@@ -11,6 +11,7 @@ from simtransformer.utils import MRR_fn, EasyDict, token_accuracy
 from simtransformer.model_base import LinearWithChannel, ReadOut
 from typing import Optional
 import re
+from torch.utils.data import DataLoader
 
 probe_pos_len = 4
 
@@ -82,7 +83,8 @@ class DataModule(DataModuleBase):
         data_train, data_test = random_split(data, [int(0.9*len(data)), len(data)-int(0.9*len(data))])
         data_train, data_val = random_split(data_train, [int(0.9*len(data_train)), len(data_train)-int(0.9*len(data_train))])
         return data_train, data_val, data_test
-    
+
+
     def transform_batch(self, batch, dataloader_idx):
         """
         Here, each sample consists of a dictionary with "pos", "sentence" and "reasoning_path" keys.
@@ -231,7 +233,7 @@ class Pipeline(PipelineBase):
         loss_eq_ls = []
         mrr_eq_ls = []
         
-        if step_type == 'train' or 'val':
+        if step_type == 'train' or step_type == 'val':
             max_dep = self.max_dep
             max_oper = self.max_oper
         elif step_type == 'test':
