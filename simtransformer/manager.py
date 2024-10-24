@@ -102,6 +102,8 @@ class TrainingManagerBase():
         val_indices_path = os.path.join(self.dir_handler.output_dir, val_indices_filename)
         self.data_config.save_val_indices_path = val_indices_path
 
+        self.data_config.num_workers = self.train_config.num_workers
+
         # setup modules
         if self.dir_handler.load_ckpt_path is not None:
             self.setup_modules_restore(self.dir_handler.load_ckpt_path)

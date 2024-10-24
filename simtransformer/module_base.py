@@ -606,7 +606,7 @@ class DataModuleBase(lightning.LightningDataModule):
             self.data_predict = clever_load(self.dir_handler.data_path)
 
     def train_dataloader(self):
-        num_workers = 4 * torch.cuda.device_count()
+        num_workers = self.data_config.num_workers * torch.cuda.device_count()
         return DataLoader(self.data_train, 
                           batch_size=self.data_config.batch_size, 
                           collate_fn=lambda x: x,

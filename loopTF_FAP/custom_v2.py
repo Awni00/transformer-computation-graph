@@ -48,7 +48,7 @@ class TrainingManager(TrainingManagerBase):
             'MR' + add_med_loss_prob_str +
             'NTP' + f'{self.train_config.loss_eq_scale:.1f}' + 
             '-' +
-            time.strftime("%m%d-%H%M")
+            time.strftime("%m%d-%H%M%S")
         )  # default
         print(f"Current training run: {training_name}")
         return training_name
